@@ -1,0 +1,16 @@
+language: go
+
+go:
+    - 1.6
+    - tip
+
+addons:
+    apt:
+        packages:
+            - libhwloc5
+install:
+    - go get github.com/sirupsen/logrus
+    - go get github.com/fsouza/go-dockerclient
+    - go get gopkg.in/urfave/cli.v2
+
+sudo: false
