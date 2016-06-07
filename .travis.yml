@@ -12,10 +12,7 @@ addons:
             - libhwloc-dev
 
 install:
-    - go get golang.org/x/net/context
-    - go get github.com/docker/distribution
-    - go get github.com/docker/engine-api
-    - go get github.com/docker/go-connections
-    - go get github.com/docker/go-units
-    - go get github.com/Sirupsen/logrus
-    - go get gopkg.in/urfave/cli.v2
+    - go get -t golang.org/x/net/context
+    - go get -t github.com/docker/engine-api
+    - go get -t github.com/Sirupsen/logrus
+    - go get -t gopkg.in/urfave/cli.v2
