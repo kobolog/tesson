@@ -7,7 +7,7 @@ import (
 
 	"github.com/kobolog/tesson/lib"
 
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v2"
 )
 

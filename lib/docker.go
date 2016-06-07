@@ -6,7 +6,7 @@ import (
 	"os"
 
 	gdc "github.com/fsouza/go-dockerclient"
-	log "github.com/sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Docker represends a Docker instance client.
