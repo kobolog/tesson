@@ -1,4 +1,4 @@
-## Tesson [![Build Status](https://travis-ci.org/kobolog/tesson.svg?branch=master)](https://travis-ci.org/kobolog/tesson)
+## Tesson [![Build Status](https://travis-ci.org/kobolog/tesson.svg?branch=master)](https://travis-ci.org/kobolog/tesson) [![License](https://img.shields.io/github/license/kobolog/tesson.svg)](LICENSE)
 
 **Shard All The Things!**
 
@@ -32,7 +32,7 @@ To stop a running sharded container group, use the `stop` command:
 
     tesson stop -g <group-name>
 
-NOTE: since Tesson relies on hardware topology to make decisions, it's important to understand that it has to be started _on the same machine as the Docker daemon_. Otherwise it will make decisions based on the wrong topology and ultimately fail to work.
+> Since Tesson relies on hardware topology to make decisions, it's important to understand that it has to be started on the same machine as the Docker daemon_. Otherwise it will make decisions based on the wrong topology and ultimately fail to work.
 
 ## TODO
 
