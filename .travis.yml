@@ -13,5 +13,5 @@ addons:
 
 install:
     - go get github.com/sirupsen/logrus
-    - go get github.com/docker/engine-cli
+    - go get github.com/docker/engine-api
     - go get gopkg.in/urfave/cli.v2

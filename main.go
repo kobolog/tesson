@@ -8,8 +8,9 @@ import (
 	"github.com/kobolog/tesson/lib"
 
 	"github.com/Sirupsen/logrus"
-	"golang.org/x/net/context"
 	"gopkg.in/urfave/cli.v2"
+
+	"golang.org/x/net/context"
 )
 
 var (
