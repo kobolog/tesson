@@ -37,6 +37,6 @@ NOTE: since Tesson relies on hardware topology to make decisions, it's important
 ## TODO
 
 - [ ] Support for HostConfig for machine-specific user-defined configuration.
-- [ ] Better understanding of Docker container states: get rid of zombie instances in active groups.
+- [x] Better understanding of Docker container states: get rid of zombie instances in active groups.
 - [ ] Hardware device locality: allow pinning to NICs, disk subsystems, etc.
 - [ ] More automation around resource quotas and management: CPU shares, memory limits (e.g. allow for memory reservation, etc).
