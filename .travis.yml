@@ -9,7 +9,7 @@ go:
 addons:
     apt:
         packages:
-            - hwloc
+            - libhwloc-dev
 
 install:
     - go get github.com/sirupsen/logrus

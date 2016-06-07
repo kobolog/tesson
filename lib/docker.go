@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"os"
 
-	gdc "github.com/fsouza/go-dockerclient"
 	log "github.com/Sirupsen/logrus"
+	"github.com/fsouza/go-dockerclient"
 )
 
-// Docker represends a Docker instance client.
-type Docker interface {
+// DockerContext represends a Docker instance client.
+type DockerContext interface {
 	Exec(name, config string, topo []string) error
 	List() ([]Group, error)
-	Kill(name string) error
+	Stop(name string, opts StopOptions) error
 }
 
 // Group represents runtime group information.
@@ -30,31 +30,36 @@ type Shard struct {
 	Status string
 }
 
+// StopOptions specifies options for Stop.
+type StopOptions struct {
+	Purge bool
+}
+
 // Implementation
 
-type docker struct {
-	client *gdc.Client
+type dockerCtx struct {
+	client *docker.Client
 }
 
 // NewDocker returns a new Docker instance client.
-func NewDocker() (Docker, error) {
-	r, err := gdc.NewClientFromEnv()
+func NewDocker() (DockerContext, error) {
+	r, err := docker.NewClientFromEnv()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &docker{client: r}, nil
+	return &dockerCtx{client: r}, nil
 }
 
-func (d *docker) Exec(group, cfg string, topo []string) error {
+func (d *dockerCtx) Exec(group, cfg string, topo []string) error {
 	f, err := os.Open(cfg)
 
 	if err != nil {
 		return err
 	}
 
-	c := gdc.Config{
+	c := docker.Config{
 		Labels: make(map[string]string),
 	}
 
@@ -79,8 +84,8 @@ func (d *docker) Exec(group, cfg string, topo []string) error {
 	return nil
 }
 
-func (d *docker) List() ([]Group, error) {
-	l, err := d.client.ListContainers(gdc.ListContainersOptions{
+func (d *dockerCtx) List() ([]Group, error) {
+	list, err := d.client.ListContainers(docker.ListContainersOptions{
 		All: true,
 	})
 
@@ -90,22 +95,18 @@ func (d *docker) List() ([]Group, error) {
 
 	m := make(map[string]*Group)
 
-	for _, c := range l {
+	for _, c := range list {
 		var g *Group
 
 		if groupID, ok := c.Labels["tesson.group"]; !ok {
 			continue
 		} else if g = m[groupID]; g == nil {
-			g = &Group{
-				Image: c.Image, Name: groupID,
-				Shards: make(map[string]Shard)}
-
+			g = &Group{c.Image, groupID, make(map[string]Shard)}
 			m[groupID] = g
 		}
 
 		g.Shards[c.ID] = Shard{
-			CPUs: c.Labels["tesson.shard"], Name: c.Names[0],
-			Status: c.Status}
+			c.Labels["tesson.shard"], c.Names[0], c.Status}
 	}
 
 	var r []Group
@@ -117,7 +118,7 @@ func (d *docker) List() ([]Group, error) {
 	return r, nil
 }
 
-func (d *docker) Kill(name string) error {
+func (d *dockerCtx) Stop(name string, opts StopOptions) error {
 	l, err := d.List()
 
 	if err != nil {
@@ -126,47 +127,56 @@ func (d *docker) Kill(name string) error {
 
 	for _, g := range l {
 		if g.Name == name {
-			return d.kill(g)
+			for id := range g.Shards {
+				if err := d.stop(id, opts); err != nil {
+					return err
+				}
+			}
+
+			break
 		}
 	}
 
 	return nil
 }
 
-func (d *docker) exec(p string, cfg *gdc.Config) error {
-	c, err := d.client.CreateContainer(gdc.CreateContainerOptions{
+func (d *dockerCtx) exec(p string, cfg *docker.Config) error {
+	c, err := d.client.CreateContainer(docker.CreateContainerOptions{
 		Config:     cfg,
-		HostConfig: &gdc.HostConfig{CPUSetCPUs: p},
+		HostConfig: &docker.HostConfig{CPUSetCPUs: p},
 	})
 
 	if err != nil {
 		return err
 	}
 
-	log.Infof("created %v", c.ID)
+	log.Infof("instance created: %v", c.ID)
 
 	// TODO: use this response to configure Gorb w/o Link?
 	return d.client.StartContainer(c.ID, nil)
 }
 
-func (d *docker) kill(g Group) error {
-	for id := range g.Shards {
-		c, err := d.client.InspectContainer(id)
+func (d *dockerCtx) stop(id string, opts StopOptions) error {
+	c, err := d.client.InspectContainer(id)
 
-		if err != nil {
-			return err
-		}
+	if err != nil {
+		return err
+	}
 
-		if !c.State.Running {
-			continue
-		}
-
-		log.Infof("stopping %v", c.ID)
-
+	if c.State.Running {
 		if err := d.client.StopContainer(c.ID, 30); err != nil {
 			return err
 		}
+
+		log.Infof("instance stopped: %v", c.ID)
 	}
 
-	return nil
+	if !opts.Purge {
+		return nil
+	}
+
+	return d.client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:            c.ID,
+		RemoveVolumes: true,
+	})
 }

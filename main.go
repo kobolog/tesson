@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	d tesson.Docker
+	d tesson.DockerContext
 	t tesson.Topology
 )
 
@@ -46,18 +46,6 @@ func exec(c *cli.Context) error {
 	return nil
 }
 
-func stop(c *cli.Context) error {
-	if !c.IsSet("name") {
-		return cli.ShowCommandHelp(c, "stop")
-	}
-
-	if err := d.Kill(c.String("name")); err != nil {
-		log.Fatalf("exec: %v", err)
-	}
-
-	return nil
-}
-
 func list(c *cli.Context) error {
 	l, err := d.List()
 
@@ -75,6 +63,20 @@ func list(c *cli.Context) error {
 		}
 
 		fmt.Println()
+	}
+
+	return nil
+}
+
+func stop(c *cli.Context) error {
+	if !c.IsSet("name") {
+		return cli.ShowCommandHelp(c, "stop")
+	}
+
+	if err := d.Stop(
+		c.String("name"), tesson.StopOptions{Purge: c.Bool("purge")},
+	); err != nil {
+		log.Fatalf("exec: %v", err)
 	}
 
 	return nil
@@ -112,6 +114,12 @@ func main() {
 			Action: exec,
 		},
 		{
+			Name:    "list",
+			Aliases: []string{"l"},
+			Usage:   "list all active sharded container groups",
+			Action:  list,
+		},
+		{
 			Name:    "stop",
 			Aliases: []string{"s"},
 			Usage:   "stop a sharded container group",
@@ -121,14 +129,12 @@ func main() {
 					Aliases: []string{"g"},
 					Usage:   "sharded group name",
 				},
+				&cli.BoolFlag{
+					Name:  "purge",
+					Usage: "purge stopped containers",
+				},
 			},
 			Action: stop,
-		},
-		{
-			Name:    "list",
-			Aliases: []string{"l"},
-			Usage:   "list all active sharded container groups",
-			Action:  list,
 		},
 	}
 
