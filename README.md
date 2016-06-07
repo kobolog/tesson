@@ -14,7 +14,7 @@ The CLI is built after Git model, with a hierarchical command structure. To star
 
 This command will automatically detect the underlying hardware architecture and spawn as many instances as it has physical cores. You can use additional flags and options to choose a different level of granularity (e.g. distribute among NUMA nodes, not CPU cores) or override the number of instances.
 
-> Since Tesson relies on hardware topology to make decisions, it's important to understand that it has to be started on the same machine as the Docker daemon_. Otherwise it will make decisions based on the wrong topology and ultimately fail to work.
+> Since Tesson relies on hardware topology to make decisions, it's important to understand that it has to be started on the same machine as the Docker daemon. Otherwise it will make decisions based on the wrong topology and ultimately fail to work.
 
 In this example and further, `group name` can be anything that complies with the Docker container naming policy. This is the name that will be used to bundle containers together, to expose the sharded container group in local load balancer and as a service name for Consul registration, given the Gorb integration was enabled.
 
@@ -40,3 +40,4 @@ To stop a running sharded container group, use the `stop` command:
 - [x] Better understanding of Docker container states: get rid of zombie instances in active groups.
 - [ ] Hardware device locality: allow pinning to NICs, disk subsystems, etc.
 - [ ] More automation around resource quotas and management: CPU shares, memory limits (e.g. allow for memory reservation, etc).
+- [ ] Support for remote usage: detect topology via hwloc container injection.
