@@ -7,7 +7,8 @@ import (
 
 	"github.com/kobolog/tesson/lib"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
 	"gopkg.in/urfave/cli.v2"
 )
 
@@ -32,15 +33,15 @@ func exec(c *cli.Context) error {
 	p, err := t.Distribute(n, tesson.DefaultDistribution())
 
 	if err != nil {
-		log.Fatalf("topo: %v", err)
+		logrus.Fatalf("topo: %v", err)
 	} else {
-		log.Infof("sharding pattern: %s", strings.Join(p, ", "))
+		logrus.Infof("sharding pattern: %s", strings.Join(p, ", "))
 	}
 
 	if err := d.Exec(
 		c.String("name"), c.String("config"), p,
 	); err != nil {
-		log.Fatalf("exec: %v", err)
+		logrus.Fatalf("exec: %v", err)
 	}
 
 	return nil
@@ -50,11 +51,11 @@ func list(c *cli.Context) error {
 	l, err := d.List()
 
 	if err != nil {
-		log.Fatalf("exec: %v", err)
+		logrus.Fatalf("exec: %v", err)
 	}
 
 	if len(l) == 0 {
-		log.Infof("no sharded container groups found")
+		logrus.Infof("no sharded container groups found")
 		return nil
 	}
 
@@ -81,7 +82,7 @@ func stop(c *cli.Context) error {
 	if err := d.Stop(
 		c.String("name"), tesson.StopOptions{Purge: c.Bool("purge")},
 	); err != nil {
-		log.Fatalf("exec: %v", err)
+		logrus.Fatalf("exec: %v", err)
 	}
 
 	return nil
@@ -150,13 +151,13 @@ func main() {
 func init() {
 	var err error
 
-	d, err = tesson.NewDocker()
+	d, err = tesson.NewDocker(context.Background())
 	if err != nil {
-		log.Fatalf("exec: %v", err)
+		logrus.Fatalf("exec: %v", err)
 	}
 
 	t, err = tesson.NewHwlocTopology()
 	if err != nil {
-		log.Fatalf("topo: %v", err)
+		logrus.Fatalf("topo: %v", err)
 	}
 }

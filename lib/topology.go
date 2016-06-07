@@ -98,7 +98,7 @@ func (t *hwloc) Distribute(
 	b := [64]C.char{}
 
 	for i, c := range l {
-		n := C.hwloc_bitmap_list_snprintf(&b[0], 64, c)
+		n := C.hwloc_bitmap_list_snprintf(&b[0], C.size_t(len(b)), c)
 		r[i] = C.GoStringN(&b[0], n)
 	}
 

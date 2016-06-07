@@ -6,12 +6,15 @@ import (
 	"errors"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/Sirupsen/logrus"
+	"github.com/docker/engine-api/client"
+	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	"golang.org/x/net/context"
 )
 
 var (
-	errGroupDoesNotExist = errors.New("group does not exist")
+	errGroupDoesNotExist = errors.New("the specified group does not exist")
 )
 
 // DockerContext represends a Docker instance client.
@@ -43,47 +46,43 @@ type StopOptions struct {
 // Implementation
 
 type dockerCtx struct {
-	client *docker.Client
+	ctx    context.Context
+	client *client.Client
 }
 
 // NewDocker returns a new Docker instance client.
-func NewDocker() (DockerContext, error) {
-	r, err := docker.NewClientFromEnv()
+func NewDocker(ctx context.Context) (DockerContext, error) {
+	r, err := client.NewEnvClient()
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &dockerCtx{client: r}, nil
+	return &dockerCtx{ctx: ctx, client: r}, nil
 }
 
-func (d *dockerCtx) Exec(group, cfg string, pattern []string) error {
-	f, err := os.Open(cfg)
+func (d *dockerCtx) Exec(group, config string, p []string) error {
+	f, err := os.Open(config)
 
 	if err != nil {
 		return err
 	}
 
-	c := docker.Config{
-		Labels: make(map[string]string),
-	}
+	c := container.Config{Labels: make(map[string]string)}
 
-	if err := json.NewDecoder(bufio.NewReader(f)).Decode(
-		&c,
-	); err != nil {
+	if err := json.NewDecoder(bufio.NewReader(f)).Decode(&c); err != nil {
 		return err
 	}
 
 	f.Close()
-
 	c.Labels["tesson.group"] = group
 
-	for _, p := range pattern {
-		c.Labels["tesson.shard"] = p
+	for _, shard := range p {
+		c.Labels["tesson.shard"] = shard
 
-		if err := d.exec(
-			&c, &docker.HostConfig{CPUSetCPUs: p},
-		); err != nil {
+		if err := d.exec(&c, &container.HostConfig{
+			Resources: container.Resources{CpusetCpus: shard},
+		}); err != nil {
 			return err
 		}
 	}
@@ -92,7 +91,7 @@ func (d *dockerCtx) Exec(group, cfg string, pattern []string) error {
 }
 
 func (d *dockerCtx) List() ([]Group, error) {
-	list, err := d.client.ListContainers(docker.ListContainersOptions{
+	list, err := d.client.ContainerList(d.ctx, types.ContainerListOptions{
 		All: true,
 	})
 
@@ -126,25 +125,25 @@ func (d *dockerCtx) List() ([]Group, error) {
 }
 
 func (d *dockerCtx) Stop(group string, opts StopOptions) error {
-	l, err := d.List()
+	list, err := d.List()
 
 	if err != nil {
 		return err
 	}
 
-	var idx int
+	var index int
 
-	for idx = 0; idx < len(l); idx++ {
-		if l[idx].Name == group {
+	for index = 0; index < len(list); index++ {
+		if list[index].Name == group {
 			break
 		}
 	}
 
-	if idx >= len(l) {
+	if index >= len(list) {
 		return errGroupDoesNotExist
 	}
 
-	for id := range l[idx].Shards {
+	for id := range list[index].Shards {
 		if err := d.stop(id, opts); err != nil {
 			return err
 		}
@@ -153,43 +152,39 @@ func (d *dockerCtx) Stop(group string, opts StopOptions) error {
 	return nil
 }
 
-func (d *dockerCtx) exec(cc *docker.Config, hc *docker.HostConfig) error {
-	c, err := d.client.CreateContainer(docker.CreateContainerOptions{
-		Config:     cc,
-		HostConfig: hc,
-	})
+func (d *dockerCtx) exec(c *container.Config, h *container.HostConfig) error {
+	r, err := d.client.ContainerCreate(d.ctx, c, h, nil, "")
 
 	if err != nil {
 		return err
 	}
 
-	log.Infof("instance created: %v", c.ID)
+	logrus.Infof("instance created: %v", r.ID)
 
 	// TODO: use this response to configure Gorb w/o Link?
-	return d.client.StartContainer(c.ID, nil)
+	return d.client.ContainerStart(d.ctx, r.ID, types.ContainerStartOptions{})
 }
 
 func (d *dockerCtx) stop(id string, opts StopOptions) error {
-	c, err := d.client.InspectContainer(id)
+	r, err := d.client.ContainerInspect(d.ctx, id)
 
 	if err != nil {
 		return err
 	}
 
-	if c.State.Running {
-		if err := d.client.StopContainer(c.ID, 30); err != nil {
+	if r.State.Running {
+		if err := d.client.ContainerStop(d.ctx, r.ID, 30); err != nil {
 			return err
 		}
 
-		log.Infof("instance stopped: %v", c.ID)
+		logrus.Infof("instance stopped: %v", r.ID)
 	}
 
 	if !opts.Purge {
 		return nil
 	}
 
-	return d.client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            c.ID,
+	return d.client.ContainerRemove(d.ctx, r.ID, types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 	})
 }
