@@ -75,7 +75,7 @@ func exec(c *cli.Context) error {
 
 	return d.Exec(cfg, tesson.ExecOptions{
 		Config: c.String("config"),
-		Ports:  c.StringSlice("publish"),
+		Ports:  c.StringSlice("port"),
 	})
 }
 
