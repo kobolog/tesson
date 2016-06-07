@@ -53,6 +53,11 @@ func list(c *cli.Context) error {
 		log.Fatalf("exec: %v", err)
 	}
 
+	if len(l) == 0 {
+		log.Infof("no sharded container groups found")
+		return nil
+	}
+
 	for _, g := range l {
 		n, _ := fmt.Printf("Group: %s (%s)\n", g.Name, g.Image)
 		fmt.Println(strings.Repeat("-", n-1))
@@ -87,6 +92,7 @@ func main() {
 
 	app.Authors = []*cli.Author{
 		{Name: "Andrey Sibiryov", Email: "me@kobology.ru"}}
+
 	app.Name = "Tesson"
 	app.Usage = "Shard All The Things!"
 	app.Version = "0.0.1"
@@ -95,7 +101,6 @@ func main() {
 		{
 			Name:    "run",
 			Aliases: []string{"r"},
-			Usage:   "run a sharded container group",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "name",
@@ -112,17 +117,17 @@ func main() {
 					Hidden:  true},
 			},
 			Action: exec,
+			Usage:  "run a sharded container group",
 		},
 		{
 			Name:    "list",
 			Aliases: []string{"l"},
-			Usage:   "list all active sharded container groups",
 			Action:  list,
+			Usage:   "list all active sharded container groups",
 		},
 		{
 			Name:    "stop",
 			Aliases: []string{"s"},
-			Usage:   "stop a sharded container group",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "name",
@@ -135,6 +140,7 @@ func main() {
 				},
 			},
 			Action: stop,
+			Usage:  "stop a sharded container group",
 		},
 	}
 

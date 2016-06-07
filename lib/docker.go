@@ -3,10 +3,15 @@ package tesson
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"os"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/fsouza/go-dockerclient"
+)
+
+var (
+	errGroupDoesNotExist = errors.New("group does not exist")
 )
 
 // DockerContext represends a Docker instance client.
@@ -76,7 +81,9 @@ func (d *dockerCtx) Exec(group, cfg string, topo []string) error {
 	for _, p := range topo {
 		c.Labels["tesson.shard"] = p
 
-		if err := d.exec(p, &c); err != nil {
+		if err := d.exec(
+			&c, &docker.HostConfig{CPUSetCPUs: p},
+		); err != nil {
 			return err
 		}
 	}
@@ -118,32 +125,38 @@ func (d *dockerCtx) List() ([]Group, error) {
 	return r, nil
 }
 
-func (d *dockerCtx) Stop(name string, opts StopOptions) error {
+func (d *dockerCtx) Stop(group string, opts StopOptions) error {
 	l, err := d.List()
 
 	if err != nil {
 		return err
 	}
 
-	for _, g := range l {
-		if g.Name == name {
-			for id := range g.Shards {
-				if err := d.stop(id, opts); err != nil {
-					return err
-				}
-			}
+	var idx int
 
+	for idx = 0; idx < len(l); idx++ {
+		if l[idx].Name == group {
 			break
+		}
+	}
+
+	if idx >= len(l) {
+		return errGroupDoesNotExist
+	}
+
+	for id := range l[idx].Shards {
+		if err := d.stop(id, opts); err != nil {
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (d *dockerCtx) exec(p string, cfg *docker.Config) error {
+func (d *dockerCtx) exec(cc *docker.Config, hc *docker.HostConfig) error {
 	c, err := d.client.CreateContainer(docker.CreateContainerOptions{
-		Config:     cfg,
-		HostConfig: &docker.HostConfig{CPUSetCPUs: p},
+		Config:     cc,
+		HostConfig: hc,
 	})
 
 	if err != nil {
