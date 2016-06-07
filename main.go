@@ -38,7 +38,18 @@ var (
 )
 
 func exec(c *cli.Context) error {
-	var n int
+	if c.NArg() == 0 {
+		return cli.ShowCommandHelp(c, "run")
+	}
+
+	var (
+		opts = tesson.ExecOptions{
+			Image:  c.Args().Get(0),
+			Ports:  c.StringSlice("port"),
+			Config: c.String("config")}
+		n    int
+		name string
+	)
 
 	if c.Int("size") > 0 {
 		n = c.Int("size")
@@ -46,37 +57,24 @@ func exec(c *cli.Context) error {
 		n = t.N()
 	}
 
-	cfg := tesson.GroupCfg{Topo: make([]tesson.ShardCfg, n)}
-
-	if c.NArg() != 0 {
-		cfg.Image = c.Args().Get(0)
-	} else {
-		return cli.ShowCommandHelp(c, "run")
-	}
-
-	if c.IsSet("group") {
-		cfg.Name = c.String("group")
-	} else {
-		cfg.Name = cfg.Image
-	}
-
-	p, err := t.Distribute(n, tesson.DefaultDistribution())
+	p, err := t.Distribute(n, tesson.DistributeOptions{
+		Granularity: tesson.Core,
+	})
 
 	if err != nil {
 		return err
 	}
 
-	log.Infof("spawning %d shards, unit layout: %s", len(p),
-		strings.Join(p, ", "))
-
-	for i, cpuset := range p {
-		cfg.Topo[i] = tesson.ShardCfg{CPUs: cpuset}
+	if c.IsSet("group") {
+		name = c.String("group")
+	} else {
+		name = opts.Image
 	}
 
-	return d.Exec(cfg, tesson.ExecOptions{
-		Config: c.String("config"),
-		Ports:  c.StringSlice("port"),
-	})
+	log.Infof("spawning %d shards, layout: %s", len(p),
+		strings.Join(p, ", "))
+
+	return d.Exec(name, opts)
 }
 
 func list(c *cli.Context) error {
@@ -95,10 +93,10 @@ func list(c *cli.Context) error {
 		n, _ := fmt.Printf("Group: %s (%s)\n", g.Name, g.Image)
 		fmt.Println(strings.Repeat("-", n-1))
 
-		for _, shard := range g.Topo {
+		for _, shard := range g.Shards {
 			fmt.Printf(
 				"|- [%s] %s (%s) unit layout: %s\n",
-				shard.State,
+				shard.Status,
 				shard.Name, shard.ID[:8], shard.CPUs)
 		}
 
@@ -159,7 +157,7 @@ func main() {
 			Action: exec,
 		},
 		{
-			Usage:     "list all active sharded container groups",
+			Usage:     "list all sharded container groups",
 			ArgsUsage: " ",
 			Name:      "ps",
 			Action:    list,

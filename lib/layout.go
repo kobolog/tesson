@@ -44,11 +44,6 @@ type DistributeOptions struct {
 	Granularity Granularity
 }
 
-// DefaultDistribution returns default options for Distribute.
-func DefaultDistribution() DistributeOptions {
-	return DistributeOptions{Granularity: Core}
-}
-
 // Granularity specifies distribution granularity.
 type Granularity uint
 
@@ -63,7 +58,7 @@ const (
 // NewHwlocTopology returns a Topology object for this machine,
 // implemented in terms of libhwloc.
 func NewHwlocTopology() (Topology, error) {
-	t := &hwloc{}
+	t := &topo{}
 
 	var r C.int
 
@@ -82,7 +77,7 @@ func NewHwlocTopology() (Topology, error) {
 	return t, nil
 }
 
-type hwloc struct {
+type topo struct {
 	ptr C.hwloc_topology_t
 }
 
@@ -97,11 +92,11 @@ func (g Granularity) build() C.hwloc_obj_type_t {
 	panic("topology: unknown object type")
 }
 
-func (t *hwloc) N() int {
+func (t *topo) N() int {
 	return int(C.hwloc_get_nbobjs_by_type(t.ptr, C.HWLOC_OBJ_CORE))
 }
 
-func (t *hwloc) Distribute(
+func (t *topo) Distribute(
 	n int, opts DistributeOptions) ([]string, error) {
 
 	var (
