@@ -57,7 +57,7 @@ func NewDocker() (DockerContext, error) {
 	return &dockerCtx{client: r}, nil
 }
 
-func (d *dockerCtx) Exec(group, cfg string, topo []string) error {
+func (d *dockerCtx) Exec(group, cfg string, pattern []string) error {
 	f, err := os.Open(cfg)
 
 	if err != nil {
@@ -78,7 +78,7 @@ func (d *dockerCtx) Exec(group, cfg string, topo []string) error {
 
 	c.Labels["tesson.group"] = group
 
-	for _, p := range topo {
+	for _, p := range pattern {
 		c.Labels["tesson.shard"] = p
 
 		if err := d.exec(

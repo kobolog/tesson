@@ -17,11 +17,11 @@ var (
 )
 
 func exec(c *cli.Context) error {
-	var n int
-
 	if !c.IsSet("name") || !c.IsSet("config") {
 		return cli.ShowCommandHelp(c, "run")
 	}
+
+	var n int
 
 	if c.Int("size") > 0 {
 		n = c.Int("size")
@@ -29,16 +29,16 @@ func exec(c *cli.Context) error {
 		n = t.N()
 	}
 
-	topo, err := t.Distribute(n, tesson.DefaultDistribution())
+	p, err := t.Distribute(n, tesson.DefaultDistribution())
 
 	if err != nil {
 		log.Fatalf("topo: %v", err)
 	} else {
-		log.Infof("sharding pattern: %s", strings.Join(topo, ", "))
+		log.Infof("sharding pattern: %s", strings.Join(p, ", "))
 	}
 
 	if err := d.Exec(
-		c.String("name"), c.String("config"), topo,
+		c.String("name"), c.String("config"), p,
 	); err != nil {
 		log.Fatalf("exec: %v", err)
 	}
@@ -99,40 +99,40 @@ func main() {
 
 	app.Commands = []*cli.Command{
 		{
-			Name:    "run",
-			Aliases: []string{"r"},
+			Name: "run",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "name",
 					Aliases: []string{"g"},
-					Usage:   "sharded group name"},
+					Usage:   "sharded container group name",
+				},
 				&cli.StringFlag{
 					Name:    "config",
 					Aliases: []string{"c"},
-					Usage:   "container config"},
+					Usage:   "container config",
+				},
 				&cli.IntFlag{
 					Name:    "size",
 					Aliases: []string{"n"},
 					Usage:   "number of instances",
-					Hidden:  true},
+					Hidden:  true,
+				},
 			},
 			Action: exec,
-			Usage:  "run a sharded container group",
+			Usage:  "start a sharded container group",
 		},
 		{
-			Name:    "list",
-			Aliases: []string{"l"},
-			Action:  list,
-			Usage:   "list all active sharded container groups",
+			Name:   "list",
+			Action: list,
+			Usage:  "list all active sharded container groups",
 		},
 		{
-			Name:    "stop",
-			Aliases: []string{"s"},
+			Name: "stop",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "name",
 					Aliases: []string{"g"},
-					Usage:   "sharded group name",
+					Usage:   "sharded container group name",
 				},
 				&cli.BoolFlag{
 					Name:  "purge",
@@ -140,7 +140,7 @@ func main() {
 				},
 			},
 			Action: stop,
-			Usage:  "stop a sharded container group",
+			Usage:  "terminate a sharded container group",
 		},
 	}
 
