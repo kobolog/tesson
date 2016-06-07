@@ -10,13 +10,13 @@ Tesson has a decent built-in command line help system. If you don't like reading
 
 The CLI is built after Git model, with a hierarchical command structure. To start a new _sharded container group_, use the `run` command:
 
-    tesson run -g <group-name> -c <container-config-json>
+    tesson run [-g <group-ident>] [-p <port-spec-1>, ..., -p <port-spec-N>] <image>
 
 This command will automatically detect the underlying hardware architecture and spawn as many instances as it has physical cores. You can use additional flags and options to choose a different level of granularity (e.g. distribute among NUMA nodes, not CPU cores) or override the number of instances.
 
 > Since Tesson relies on hardware topology to make decisions, it's important to understand that it has to be started on the same machine as the Docker daemon. Otherwise it will make decisions based on the wrong topology and ultimately fail to work.
 
-In this example and further, `group name` can be anything that complies with the Docker container naming policy. This is the name that will be used to bundle containers together, to expose the sharded container group in local load balancer and as a service name for Consul registration, given the Gorb integration was enabled.
+In this example and further, `group-ident` can be anything that complies with the Docker container naming policy. This is the name that will be used to bundle containers together, to expose the sharded container group in local load balancer and as a service name for Consul registration, given the Gorb integration was enabled. If `group-ident` is not specified, the image name will be used in place of it. 
 
 All the Docker-related options are provided via a config file in JSON format. The contents of this file must follow the format defined in [Docker API](https://docs.docker.com/engine/reference/api/docker_remote_api_v1.20/#create-a-container) documentation. The basic config file should at least contain the image name:
 
@@ -26,13 +26,13 @@ All the Docker-related options are provided via a config file in JSON format. Th
 }
 ```
 
-To see running sharded container groups, use the `list` command:
+To see running sharded container groups, use the `ps` command:
 
-    tesson list
+    tesson ps
 
 To stop a running sharded container group, use the `stop` command:
 
-    tesson stop -g <group-name>
+    tesson stop -g <group-ident>
 
 ## TODO
 

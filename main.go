@@ -38,10 +38,6 @@ var (
 )
 
 func exec(c *cli.Context) error {
-	if !c.IsSet("name") || !c.IsSet("config") {
-		return cli.ShowCommandHelp(c, "run")
-	}
-
 	var n int
 
 	if c.Int("size") > 0 {
@@ -50,15 +46,37 @@ func exec(c *cli.Context) error {
 		n = t.N()
 	}
 
+	cfg := tesson.GroupCfg{Topo: make([]tesson.ShardCfg, n)}
+
+	if c.NArg() != 0 {
+		cfg.Image = c.Args().Get(0)
+	} else {
+		return cli.ShowCommandHelp(c, "run")
+	}
+
+	if c.IsSet("group") {
+		cfg.Name = c.String("group")
+	} else {
+		cfg.Name = cfg.Image
+	}
+
 	p, err := t.Distribute(n, tesson.DefaultDistribution())
 
 	if err != nil {
 		return err
 	}
 
-	log.Infof("sharding pattern: %s", strings.Join(p, ", "))
+	log.Infof("spawning %d shards, unit layout: %s", len(p),
+		strings.Join(p, ", "))
 
-	return d.Exec(c.String("name"), c.String("config"), p)
+	for i, cpuset := range p {
+		cfg.Topo[i] = tesson.ShardCfg{CPUs: cpuset}
+	}
+
+	return d.Exec(cfg, tesson.ExecOptions{
+		Config: c.String("config"),
+		Ports:  c.StringSlice("publish"),
+	})
 }
 
 func list(c *cli.Context) error {
@@ -69,7 +87,7 @@ func list(c *cli.Context) error {
 	}
 
 	if len(l) == 0 {
-		log.Info("no sharded container groups found")
+		log.Info("no sharded container groups found!")
 		return nil
 	}
 
@@ -77,9 +95,11 @@ func list(c *cli.Context) error {
 		n, _ := fmt.Printf("Group: %s (%s)\n", g.Name, g.Image)
 		fmt.Println(strings.Repeat("-", n-1))
 
-		for id, s := range g.Shards {
-			fmt.Printf("|- [%s] %s (%s) bound to cores: %s\n",
-				s.Status, s.Name, id[:6], s.CPUs)
+		for _, shard := range g.Topo {
+			fmt.Printf(
+				"|- [%s] %s (%s) unit layout: %s\n",
+				shard.State,
+				shard.Name, shard.ID[:8], shard.CPUs)
 		}
 
 		fmt.Println()
@@ -89,11 +109,11 @@ func list(c *cli.Context) error {
 }
 
 func stop(c *cli.Context) error {
-	if !c.IsSet("name") {
+	if !c.IsSet("group") {
 		return cli.ShowCommandHelp(c, "stop")
 	}
 
-	return d.Stop(c.String("name"), tesson.StopOptions{
+	return d.Stop(c.String("group"), tesson.StopOptions{
 		Purge: c.Bool("purge"),
 	})
 }
@@ -110,38 +130,47 @@ func main() {
 
 	app.Commands = []*cli.Command{
 		{
-			Name: "run",
+			Usage:     "start a sharded container group",
+			ArgsUsage: "image",
+			Name:      "run",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "name",
-					Aliases: []string{"g"},
 					Usage:   "sharded container group name",
+					Name:    "group",
+					Aliases: []string{"g"},
 				},
 				&cli.StringFlag{
+					Usage:   "container config",
 					Name:    "config",
 					Aliases: []string{"c"},
-					Usage:   "container config",
+				},
+				&cli.StringSliceFlag{
+					Usage:   "ports to publish",
+					Name:    "port",
+					Aliases: []string{"p"},
 				},
 				&cli.IntFlag{
+					Usage:   "number of instances",
 					Name:    "size",
 					Aliases: []string{"n"},
-					Usage:   "number of instances",
 					Hidden:  true,
 				},
 			},
 			Action: exec,
-			Usage:  "start a sharded container group",
 		},
 		{
-			Name:   "list",
-			Action: list,
-			Usage:  "list all active sharded container groups",
+			Usage:     "list all active sharded container groups",
+			ArgsUsage: " ",
+			Name:      "ps",
+			Action:    list,
 		},
 		{
-			Name: "stop",
+			Usage:     "terminate a sharded container group",
+			ArgsUsage: " ",
+			Name:      "stop",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "name",
+					Name:    "group",
 					Aliases: []string{"g"},
 					Usage:   "sharded container group name",
 				},
@@ -151,7 +180,6 @@ func main() {
 				},
 			},
 			Action: stop,
-			Usage:  "terminate a sharded container group",
 		},
 	}
 

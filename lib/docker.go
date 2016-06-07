@@ -30,6 +30,7 @@ import (
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
+	"github.com/docker/go-connections/nat"
 
 	"golang.org/x/net/context"
 )
@@ -40,23 +41,43 @@ var (
 
 // DockerContext represends a Docker instance client.
 type DockerContext interface {
-	Exec(name, config string, topo []string) error
+	Exec(group GroupCfg, opts ExecOptions) error
 	List() ([]Group, error)
-	Stop(name string, opts StopOptions) error
+	Stop(group string, opts StopOptions) error
 }
 
-// Group represents runtime group information.
+// GroupCfg represents group configuration.
+type GroupCfg struct {
+	Name  string
+	Image string
+	Topo  []ShardCfg
+}
+
+// Group represents runtime group status.
 type Group struct {
-	Image  string
-	Name   string
-	Shards map[string]Shard
+	Name  string
+	Image string
+	Topo  []Shard
 }
 
-// Shard represents a single group member.
+// ShardCfg represents a single group member configuration.
+type ShardCfg struct {
+	CPUs string
+}
+
+// Shard represents runtime group member status
 type Shard struct {
-	CPUs   string
-	Name   string
-	Status string
+	Name  string
+	ID    string
+	State string
+	CPUs  string
+}
+
+// ExecOptions specifies options for Exec.
+type ExecOptions struct {
+	Config     string
+	HostConfig string
+	Ports      []string
 }
 
 // StopOptions specifies options for Stop.
@@ -82,28 +103,37 @@ func NewDockerContext(ctx context.Context) (DockerContext, error) {
 	return &dockerCtx{ctx: ctx, client: r}, nil
 }
 
-func (d *dockerCtx) Exec(group, config string, p []string) error {
-	fd, err := os.Open(config)
+func (d *dockerCtx) Exec(cfg GroupCfg, opts ExecOptions) error {
+	c := container.Config{Labels: make(map[string]string)}
+
+	if len(opts.Config) != 0 {
+		f, err := os.Open(opts.Config)
+
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+
+		if err := json.NewDecoder(bufio.NewReader(f)).Decode(&c); err != nil {
+			return err
+		}
+	}
+
+	c.Image, c.Labels["tesson.group"] = cfg.Image, cfg.Name
+
+	_, pm, err := nat.ParsePortSpecs(opts.Ports)
 
 	if err != nil {
 		return err
 	}
 
-	defer fd.Close()
-
-	c := container.Config{Labels: make(map[string]string)}
-
-	if err := json.NewDecoder(bufio.NewReader(fd)).Decode(&c); err != nil {
-		return err
-	}
-
-	c.Labels["tesson.group"] = group
-
-	for _, shard := range p {
-		c.Labels["tesson.shard"] = shard
+	for _, shard := range cfg.Topo {
+		c.Labels["tesson.shard"] = shard.CPUs
 
 		if err := d.exec(&c, &container.HostConfig{
-			Resources: container.Resources{CpusetCpus: shard},
+			Resources:    container.Resources{CpusetCpus: shard.CPUs},
+			PortBindings: pm,
 		}); err != nil {
 			return err
 		}
@@ -126,15 +156,24 @@ func (d *dockerCtx) List() ([]Group, error) {
 	for _, c := range list {
 		var g *Group
 
-		if groupID, ok := c.Labels["tesson.group"]; !ok {
+		if group, ok := c.Labels["tesson.group"]; !ok {
 			continue
-		} else if g = m[groupID]; g == nil {
-			g = &Group{c.Image, groupID, make(map[string]Shard)}
-			m[groupID] = g
+		} else if g = m[group]; g == nil {
+			g = &Group{Name: group, Image: c.Image}
+			m[group] = g
 		}
 
-		g.Shards[c.ID] = Shard{
-			c.Labels["tesson.shard"], c.Names[0], c.Status}
+		var name string
+
+		if len(c.Names[0]) == 0 {
+			name = "<unknown>"
+		} else {
+			name = c.Names[0]
+		}
+
+		g.Topo = append(g.Topo, Shard{
+			Name: name, ID: c.ID, CPUs: c.Labels["tesson.shard"],
+			State: c.State})
 	}
 
 	var r []Group
@@ -165,8 +204,8 @@ func (d *dockerCtx) Stop(group string, opts StopOptions) error {
 		return errGroupDoesNotExist
 	}
 
-	for id := range list[index].Shards {
-		if err := d.stop(id, opts); err != nil {
+	for _, shard := range list[index].Topo {
+		if err := d.stop(shard.ID, opts); err != nil {
 			return err
 		}
 	}
@@ -183,8 +222,13 @@ func (d *dockerCtx) exec(c *container.Config, h *container.HostConfig) error {
 
 	log.Infof("instance created: %v", r.ID)
 
-	// TODO: use this response to configure Gorb w/o Link?
-	return d.client.ContainerStart(d.ctx, r.ID, types.ContainerStartOptions{})
+	if err := d.client.ContainerStart(
+		d.ctx, r.ID, types.ContainerStartOptions{},
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (d *dockerCtx) stop(id string, opts StopOptions) error {
