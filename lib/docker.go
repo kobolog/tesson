@@ -51,8 +51,8 @@ type dockerCtx struct {
 	client *client.Client
 }
 
-// NewDocker returns a new Docker instance client.
-func NewDocker(ctx context.Context) (DockerContext, error) {
+// NewDockerContext returns a new Docker instance client.
+func NewDockerContext(ctx context.Context) (DockerContext, error) {
 	r, err := client.NewEnvClient()
 
 	if err != nil {

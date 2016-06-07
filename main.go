@@ -152,7 +152,7 @@ func main() {
 func init() {
 	var err error
 
-	d, err = tesson.NewDocker(context.Background())
+	d, err = tesson.NewDockerContext(context.Background())
 	if err != nil {
 		logrus.Fatalf("exec: %v", err)
 	}
