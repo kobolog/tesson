@@ -1,6 +1,7 @@
 package tesson
 
 // #include <hwloc.h>
+// #cgo CFLAGS: -Wno-deprecated-declarations
 // #cgo LDFLAGS: -lhwloc
 import "C"
 
@@ -90,8 +91,8 @@ func (t *hwloc) Distribute(
 		l = make([]C.hwloc_cpuset_t, n)
 	)
 
-	C.hwloc_distrib(
-		t.ptr, &roots, 1, &l[0], C.uint(len(l)), C.uint(depth), 0)
+	C.hwloc_distribute(
+		t.ptr, roots, &l[0], C.uint(len(l)), C.uint(depth))
 
 	r := make([]string, n)
 	b := [64]C.char{}
