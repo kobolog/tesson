@@ -1,3 +1,5 @@
+sudo: false
+
 language: go
 
 go:
@@ -7,10 +9,9 @@ go:
 addons:
     apt:
         packages:
-            - libhwloc5
+            - hwloc
+
 install:
     - go get github.com/sirupsen/logrus
     - go get github.com/fsouza/go-dockerclient
     - go get gopkg.in/urfave/cli.v2
-
-sudo: false
