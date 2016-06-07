@@ -13,6 +13,7 @@ addons:
 
 install:
     - go get -t golang.org/x/net/context
-    - go get -t github.com/docker/engine-api
+    - go get -t github.com/docker/engine-api/client
+    - go get -t github.com/docker/engine-api/types
     - go get -t github.com/Sirupsen/logrus
     - go get -t gopkg.in/urfave/cli.v2
