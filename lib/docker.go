@@ -69,13 +69,14 @@ func (d *dockerCtx) Exec(group, config string, p []string) error {
 		return err
 	}
 
+	defer f.Close()
+
 	c := container.Config{Labels: make(map[string]string)}
 
 	if err := json.NewDecoder(bufio.NewReader(f)).Decode(&c); err != nil {
 		return err
 	}
 
-	f.Close()
 	c.Labels["tesson.group"] = group
 
 	for _, shard := range p {
