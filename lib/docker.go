@@ -6,7 +6,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
@@ -63,17 +63,17 @@ func NewDockerContext(ctx context.Context) (DockerContext, error) {
 }
 
 func (d *dockerCtx) Exec(group, config string, p []string) error {
-	f, err := os.Open(config)
+	fd, err := os.Open(config)
 
 	if err != nil {
 		return err
 	}
 
-	defer f.Close()
+	defer fd.Close()
 
 	c := container.Config{Labels: make(map[string]string)}
 
-	if err := json.NewDecoder(bufio.NewReader(f)).Decode(&c); err != nil {
+	if err := json.NewDecoder(bufio.NewReader(fd)).Decode(&c); err != nil {
 		return err
 	}
 
@@ -161,7 +161,7 @@ func (d *dockerCtx) exec(c *container.Config, h *container.HostConfig) error {
 		return err
 	}
 
-	logrus.Infof("instance created: %v", r.ID)
+	log.Infof("instance created: %v", r.ID)
 
 	// TODO: use this response to configure Gorb w/o Link?
 	return d.client.ContainerStart(d.ctx, r.ID, types.ContainerStartOptions{})
@@ -179,7 +179,7 @@ func (d *dockerCtx) stop(id string, opts StopOptions) error {
 			return err
 		}
 
-		logrus.Infof("instance stopped: %v", r.ID)
+		log.Infof("instance stopped: %v", r.ID)
 	}
 
 	if !opts.Purge {

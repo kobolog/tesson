@@ -7,7 +7,7 @@ import (
 
 	"github.com/kobolog/tesson/lib"
 
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v2"
 
 	"golang.org/x/net/context"
@@ -34,29 +34,23 @@ func exec(c *cli.Context) error {
 	p, err := t.Distribute(n, tesson.DefaultDistribution())
 
 	if err != nil {
-		logrus.Fatalf("topo: %v", err)
-	} else {
-		logrus.Infof("sharding pattern: %s", strings.Join(p, ", "))
+		return err
 	}
 
-	if err := d.Exec(
-		c.String("name"), c.String("config"), p,
-	); err != nil {
-		logrus.Fatalf("exec: %v", err)
-	}
+	log.Infof("sharding pattern: %s", strings.Join(p, ", "))
 
-	return nil
+	return d.Exec(c.String("name"), c.String("config"), p)
 }
 
 func list(c *cli.Context) error {
 	l, err := d.List()
 
 	if err != nil {
-		logrus.Fatalf("exec: %v", err)
+		return err
 	}
 
 	if len(l) == 0 {
-		logrus.Infof("no sharded container groups found")
+		log.Info("no sharded container groups found")
 		return nil
 	}
 
@@ -65,7 +59,7 @@ func list(c *cli.Context) error {
 		fmt.Println(strings.Repeat("-", n-1))
 
 		for id, s := range g.Shards {
-			fmt.Printf("|- [%s] %s (%s) bound to core(s) %s\n",
+			fmt.Printf("|- [%s] %s (%s) bound to cores: %s\n",
 				s.Status, s.Name, id[:6], s.CPUs)
 		}
 
@@ -80,13 +74,9 @@ func stop(c *cli.Context) error {
 		return cli.ShowCommandHelp(c, "stop")
 	}
 
-	if err := d.Stop(
-		c.String("name"), tesson.StopOptions{Purge: c.Bool("purge")},
-	); err != nil {
-		logrus.Fatalf("exec: %v", err)
-	}
-
-	return nil
+	return d.Stop(c.String("name"), tesson.StopOptions{
+		Purge: c.Bool("purge"),
+	})
 }
 
 func main() {
@@ -146,7 +136,9 @@ func main() {
 		},
 	}
 
-	app.Run(os.Args)
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func init() {
@@ -154,11 +146,11 @@ func init() {
 
 	d, err = tesson.NewDockerContext(context.Background())
 	if err != nil {
-		logrus.Fatalf("exec: %v", err)
+		log.Fatalf("exec: %v", err)
 	}
 
 	t, err = tesson.NewHwlocTopology()
 	if err != nil {
-		logrus.Fatalf("topo: %v", err)
+		log.Fatalf("topo: %v", err)
 	}
 }
