@@ -23,16 +23,14 @@ package tesson
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 
-	"github.com/docker/go-connections/nat"
+	"github.com/docker/engine-api/types"
 
 	"github.com/kobolog/gorb/pulse"
 	"github.com/kobolog/gorb/util"
@@ -40,14 +38,8 @@ import (
 
 // Frontend represents a local load balancer.
 type Frontend interface {
-	CreateShard(service string, shard ShardOptions) error
-	RemoveShard(service string, shard ShardOptions) error
-}
-
-// ShardOptions represents a single Tesson shard.
-type ShardOptions struct {
-	ID      string
-	PortMap nat.PortMap
+	CreateService(group string, shards []Shard) error
+	RemoveService(group string, shards []Shard) error
 }
 
 // Implementation
@@ -69,7 +61,7 @@ func NewGorbFrontend(uri string) (Frontend, error) {
 		return nil, err
 	}
 
-	g.remote = &url.URL{Scheme: "http", Host: u.Host}
+	g.url = &url.URL{Scheme: "http", Host: u.Host}
 
 	return g, nil
 }
@@ -77,32 +69,31 @@ func NewGorbFrontend(uri string) (Frontend, error) {
 type gorb struct {
 	cache   map[string]struct{}
 	hostIPs []net.IP
-	remote  *url.URL
+	url     *url.URL
 }
 
-func (g *gorb) CreateShard(vs string, shard ShardOptions) error {
-	for port, binds := range shard.PortMap {
-		switch len(binds) {
-		case 0:
-			continue
-		case 1:
-			break
-		default:
-			return errors.New("multiple bindings not supported")
-		}
-
-		vsID := g.construct(vs, port)
-
-		if _, ok := g.cache[vsID]; !ok {
-			if err := g.createService(vsID, port); err != nil {
-				return err
+func (g *gorb) CreateService(group string, shards []Shard) error {
+	for _, shard := range shards {
+		for _, port := range shard.Ports {
+			if port.PublicPort == 0 || port.PrivatePort == 0 {
+				continue
 			}
 
-			g.cache[vsID] = struct{}{}
-		}
+			vsID := g.mangle(group, port)
 
-		if err := g.add(vsID, shard.ID, binds[0]); err != nil {
-			return err
+			if _, ok := g.cache[vsID]; !ok {
+				if err := g.createService(vsID, port); err != nil {
+					return err
+				}
+
+				g.cache[vsID] = struct{}{}
+			}
+
+			rsID := g.mangle(shard.ID, port)
+
+			if err := g.createBackend(vsID, rsID, port); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -114,17 +105,17 @@ type serviceRequest struct {
 	Protocol string `json:"protocol"`
 }
 
-func (g *gorb) createService(vsID string, p nat.Port) error {
+func (g *gorb) createService(vsID string, p types.Port) error {
 	request := serviceRequest{
-		Port: uint(p.Int()), Protocol: p.Proto()}
+		Port: uint(p.PrivatePort), Protocol: p.Type}
 
-	u := *g.remote
+	u := *g.url
 	u.Path = path.Join("service", vsID)
 
 	r, _ := http.NewRequest("PUT", u.String(), bytes.NewBuffer(
 		util.MustMarshal(request, util.JSONOptions{})))
 
-	return g.roundtrip(r, map[int]func() error{
+	return g.roundtrip(r, errorDispatch{
 		http.StatusConflict: func() error {
 			return nil // not actually an error.
 		}})
@@ -136,27 +127,27 @@ type backendRequest struct {
 	Pulse *pulse.Options `json:"pulse"`
 }
 
-func (g *gorb) add(vsID, rsID string, b nat.PortBinding) error {
-	request := backendRequest{Host: b.HostIP}
+func (g *gorb) createBackend(vsID, rsID string, p types.Port) error {
+	request := backendRequest{
+		Host: p.IP, Port: uint(p.PublicPort)}
+
+	if p.Type == "udp" {
+		// Disable health checks for UDP-based services.
+		request.Pulse = &pulse.Options{Type: "none"}
+	}
 
 	if request.Host == "0.0.0.0" {
-		// Rewrite "catch-all" host to a real host's IP address.
+		// TODO: generate for each interface address.
 		request.Host = g.hostIPs[0].String()
 	}
 
-	if n, err := strconv.Atoi(b.HostPort); err == nil {
-		request.Port = uint(n)
-	} else {
-		return err
-	}
-
-	u := *g.remote
+	u := *g.url
 	u.Path = path.Join("service", vsID, rsID)
 
 	r, _ := http.NewRequest("PUT", u.String(), bytes.NewBuffer(
 		util.MustMarshal(request, util.JSONOptions{})))
 
-	return g.roundtrip(r, map[int]func() error{
+	return g.roundtrip(r, errorDispatch{
 		http.StatusConflict: func() error {
 			return fmt.Errorf("shard [%s] does exist", rsID)
 		},
@@ -165,43 +156,48 @@ func (g *gorb) add(vsID, rsID string, b nat.PortBinding) error {
 		}})
 }
 
-func (g *gorb) RemoveShard(vs string, shard ShardOptions) error {
-	for p, binds := range shard.PortMap {
-		switch len(binds) {
-		case 0:
-			continue
-		case 1:
-			break
-		default:
-			return errors.New("multiple bindings not supported")
+func (g *gorb) RemoveService(group string, shards []Shard) error {
+	vsIDs := map[string]struct{}{}
+
+	for _, shard := range shards {
+		for _, port := range shard.Ports {
+			if port.PublicPort == 0 || port.PrivatePort == 0 {
+				continue
+			}
+
+			vsIDs[g.mangle(group, port)] = struct{}{}
 		}
+	}
 
-		u := *g.remote
-		u.Path = path.Join("service", g.construct(vs, p), shard.ID)
+	u := *g.url
 
+	for vsID := range vsIDs {
+		u.Path = path.Join("service", vsID)
 		r, _ := http.NewRequest("DELETE", u.String(), nil)
 
-		if err := g.roundtrip(r, map[int]func() error{
+		if err := g.roundtrip(r, errorDispatch{
 			http.StatusNotFound: func() error {
-				return fmt.Errorf("shard [%s] not found", shard.ID)
-			},
-		}); err != nil {
+				return fmt.Errorf("[%s] not found", vsID)
+			}},
+		); err != nil {
 			return err
 		}
+
+		delete(g.cache, vsID)
 	}
 
 	return nil
 }
 
-func (g *gorb) construct(vs string, p nat.Port) string {
-	return fmt.Sprintf("%s-%s-%s", strings.Map(func(r rune) rune {
+func (g *gorb) mangle(id string, p types.Port) string {
+	return fmt.Sprintf("%s-%d-%s", strings.Map(func(r rune) rune {
 		switch r {
 		case '/', ':':
 			return '-'
 		default:
 			return r
 		}
-	}, vs), p.Port(), p.Proto())
+	}, id), p.PrivatePort, p.Type)
 }
 
 type errorDispatch map[int]func() error

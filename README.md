@@ -16,7 +16,7 @@ This command will automatically detect the underlying hardware architecture and 
 
 > Since Tesson relies on hardware topology to make decisions, it's important to understand that it has to be started on the same machine as the Docker daemon. Otherwise it will make decisions based on the wrong topology and ultimately fail to work.
 
-In this example and further, `group-ident` can be anything that complies with the Docker container naming policy. This is the name that will be used to bundle containers together, to expose the sharded container group in local load balancer and as a service name for Consul registration, given the Gorb integration was enabled. If `group-ident` is not specified, the image name will be used in place of it. 
+In this example and further, `group-ident` can be anything that complies with the Docker container naming policy. This is the name that will be used to bundle containers together, to expose the sharded container group in local load balancer and as a service name for Consul registration, given the Gorb integration was enabled. If `group-ident` is not specified, the image name will be used in place of it.
 
 All the Docker-related options are provided via a config file in JSON format. The contents of this file must follow the format defined in [Docker API](https://docs.docker.com/engine/reference/api/docker_remote_api_v1.20/#create-a-container) documentation. The basic config file should at least contain the image name:
 
@@ -33,6 +33,12 @@ To see running sharded container groups, use the `ps` command:
 To stop a running sharded container group, use the `stop` command:
 
     tesson stop -g <group-ident>
+
+## Gorb integration
+
+To enable automatic frontend load balancer configuration and service discovery, you need to provide Gorb URI via a `--gorb` flag. The format is `device://endpoint:port`, e.g. `eth0://1.2.3.4:4672`. You must specify the device name for Tesson to know which interface should be used to publish service ports on.
+
+Alternatively, you can provide Gorb URI via an environment variable `GORB_URI`.
 
 ## TODO
 

@@ -51,8 +51,8 @@ func exec(c *cli.Context) error {
 		n = t.N()
 	}
 
-	p, err := t.Distribute(n, tesson.DistributeOptions{
-		Granularity: tesson.Core,
+	l, err := t.Distribute(n, tesson.DistributeOptions{
+		Granularity: tesson.CoreGranularity,
 	})
 
 	if err != nil {
@@ -61,32 +61,42 @@ func exec(c *cli.Context) error {
 
 	opts := tesson.ExecOptions{
 		Image:  c.Args().Get(0),
-		Layout: p,
+		Layout: l,
 		Ports:  c.StringSlice("port"),
 		Config: c.String("config")}
 
-	var name string
+	var group string
 
 	if c.IsSet("group") {
-		name = c.String("group")
+		group = c.String("group")
 	} else {
-		name = opts.Image
+		group = opts.Image
 	}
 
-	if c.IsSet("gorb") {
-		f, err := tesson.NewGorbFrontend(c.String("gorb"))
+	log.Infof("spawning %d shards, layout: %s", len(l),
+		strings.Join(l, ", "))
 
-		if err != nil {
-			return err
-		}
-
-		opts.Front = f
+	if err := r.Exec(group, opts); err != nil {
+		return err
 	}
 
-	log.Infof("spawning %d shards, layout: %s", len(p),
-		strings.Join(p, ", "))
+	if !c.IsSet("gorb") {
+		return nil
+	}
 
-	return r.Exec(name, opts)
+	g, err := tesson.NewGorbFrontend(c.String("gorb"))
+
+	if err != nil {
+		return err
+	}
+
+	i, err := r.Info(group)
+
+	if err != nil {
+		return err
+	}
+
+	return g.CreateService(group, i.Shards)
 }
 
 func list(c *cli.Context) error {
@@ -123,21 +133,29 @@ func stop(c *cli.Context) error {
 		return cli.ShowCommandHelp(c, "stop")
 	}
 
-	opts := tesson.StopOptions{
-		Purge: c.Bool("purge"),
-	}
+	group := c.String("group")
 
 	if c.IsSet("gorb") {
-		f, err := tesson.NewGorbFrontend(c.String("gorb"))
+		g, err := tesson.NewGorbFrontend(c.String("gorb"))
 
 		if err != nil {
 			return err
 		}
 
-		opts.Front = f
+		i, err := r.Info(group)
+
+		if err != nil {
+			return err
+		}
+
+		if err := g.RemoveService(group, i.Shards); err != nil {
+			return err
+		}
 	}
 
-	return r.Stop(c.String("group"), opts)
+	return r.Stop(group, tesson.StopOptions{
+		Purge: c.Bool("purge"),
+	})
 }
 
 func main() {

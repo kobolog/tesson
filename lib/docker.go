@@ -24,6 +24,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 
 	"golang.org/x/net/context"
@@ -45,6 +46,7 @@ var (
 type RuntimeContext interface {
 	Exec(group string, opts ExecOptions) error
 	List() ([]Group, error)
+	Info(group string) (Group, error)
 	Stop(group string, opts StopOptions) error
 }
 
@@ -61,6 +63,7 @@ type Shard struct {
 	ID     string // Shard ID.
 	Status string // Shard status string.
 	CPUs   string // Bound CPU cores.
+	Ports  []types.Port
 }
 
 // ExecOptions specifies options for Exec.
@@ -69,7 +72,6 @@ type ExecOptions struct {
 	Layout []string // CPU core indices to bind shards.
 	Ports  []string // Published ports.
 	Config string   // Container config file.
-	Front  Frontend // Local LB frontend.
 }
 
 // StopOptions specifies options for Stop.
@@ -89,6 +91,15 @@ func NewDockerContext(ctx context.Context) (RuntimeContext, error) {
 	}
 
 	return &docker{ctx: ctx, client: r}, nil
+}
+
+func toShard(c types.Container) Shard {
+	return Shard{
+		Name:   c.Names[0],
+		ID:     c.ID,
+		CPUs:   c.Labels["tesson.shard"],
+		Status: c.Status,
+		Ports:  c.Ports}
 }
 
 type docker struct {
@@ -162,15 +173,11 @@ func (d *docker) List() ([]Group, error) {
 		)
 
 		if g = m[label]; g == nil {
-			g = &Group{
-				Name: label, Image: c.Image}
-
+			g = &Group{Name: label, Image: c.Image}
 			m[label] = g
 		}
 
-		g.Shards = append(g.Shards, Shard{
-			Name: c.Names[0], ID: c.ID, CPUs: c.Labels["tesson.shard"],
-			Status: c.Status})
+		g.Shards = append(g.Shards, toShard(c))
 	}
 
 	var r []Group
@@ -180,6 +187,32 @@ func (d *docker) List() ([]Group, error) {
 	}
 
 	return r, nil
+}
+
+func (d *docker) Info(group string) (Group, error) {
+	f := filters.NewArgs()
+	f.Add("label", fmt.Sprintf("tesson.group=%s", group))
+
+	l, err := d.client.ContainerList(d.ctx, types.ContainerListOptions{
+		All:    true,
+		Filter: f,
+	})
+
+	if err != nil {
+		return Group{}, err
+	}
+
+	if len(l) == 0 {
+		return Group{}, errGroupDoesNotExist
+	}
+
+	g := Group{Name: group, Image: l[0].Image}
+
+	for _, c := range l {
+		g.Shards = append(g.Shards, toShard(c))
+	}
+
+	return g, nil
 }
 
 func (d *docker) Stop(group string, opts StopOptions) error {
@@ -228,20 +261,13 @@ func (d *docker) exec(
 		return err
 	}
 
-	if opts.Front == nil {
-		return nil
-	}
+	// i, err := d.client.ContainerInspect(d.ctx, r.ID)
+	//
+	// if err != nil {
+	// 	return err
+	// }
 
-	i, err := d.client.ContainerInspect(d.ctx, r.ID)
-
-	if err != nil {
-		return err
-	}
-
-	return opts.Front.CreateShard(group, ShardOptions{
-		ID:      i.ID,
-		PortMap: i.NetworkSettings.Ports,
-	})
+	return nil
 }
 
 func (d *docker) stop(group, id string, opts StopOptions) error {
@@ -252,15 +278,6 @@ func (d *docker) stop(group, id string, opts StopOptions) error {
 	}
 
 	if i.State.Running {
-		if opts.Front != nil {
-			if err := opts.Front.RemoveShard(group, ShardOptions{
-				ID:      i.ID,
-				PortMap: i.NetworkSettings.Ports,
-			}); err != nil {
-				return err
-			}
-		}
-
 		if err := d.client.ContainerStop(d.ctx, i.ID, 30); err != nil {
 			return err
 		}

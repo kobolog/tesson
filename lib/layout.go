@@ -49,8 +49,8 @@ type Granularity uint
 
 // Supported distribution granularities.
 const (
-	Node Granularity = iota
-	Core
+	NodeGranularity Granularity = iota
+	CoreGranularity
 )
 
 // Implementation
@@ -83,9 +83,9 @@ type topology struct {
 
 func (g Granularity) build() C.hwloc_obj_type_t {
 	switch g {
-	case Node:
+	case NodeGranularity:
 		return C.HWLOC_OBJ_NODE
-	case Core:
+	case CoreGranularity:
 		return C.HWLOC_OBJ_CORE
 	}
 
