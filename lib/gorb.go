@@ -53,24 +53,23 @@ type ShardOptions struct {
 // Implementation
 
 // NewGorbFrontend constructs a new Frontend powered by Gorb.
-func NewGorbFrontend(gorbURI string) (Frontend, error) {
-	parts := strings.Split(gorbURI, ":")
+func NewGorbFrontend(uri string) (Frontend, error) {
+	// URI is "device://host:port", e.g. "eth1://1.2.3.4:4872"
+	u, err := url.Parse(uri)
 
-	if len(parts) != 2 {
-		return nil, errors.New("invalid Gorb address")
+	if err != nil {
+		return nil, err
 	}
 
 	g := &gorb{cache: make(map[string]struct{})}
 
-	if addrs, err := util.InterfaceIPs(parts[0]); err == nil {
+	if addrs, err := util.InterfaceIPs(u.Scheme); err == nil {
 		g.hostIPs = addrs
 	} else {
 		return nil, err
 	}
 
-	g.remote = &url.URL{
-		Scheme: "http",
-		Host:   fmt.Sprintf("%s:%s", "127.0.0.1", parts[1])}
+	g.remote = &url.URL{Scheme: "http", Host: u.Host}
 
 	return g, nil
 }
@@ -167,7 +166,16 @@ func (g *gorb) add(vsID, rsID string, b nat.PortBinding) error {
 }
 
 func (g *gorb) RemoveShard(vs string, shard ShardOptions) error {
-	for p := range shard.PortMap {
+	for p, binds := range shard.PortMap {
+		switch len(binds) {
+		case 0:
+			continue
+		case 1:
+			break
+		default:
+			return errors.New("multiple bindings not supported")
+		}
+
 		u := *g.remote
 		u.Path = path.Join("service", g.construct(vs, p), shard.ID)
 
@@ -207,7 +215,7 @@ func (g *gorb) roundtrip(req *http.Request, ed errorDispatch) error {
 	if err == nil {
 		defer r.Body.Close()
 	} else {
-		return fmt.Errorf("communication error: %s", err)
+		return fmt.Errorf("gorb communication error: %s", err)
 	}
 
 	if r.StatusCode == http.StatusOK {

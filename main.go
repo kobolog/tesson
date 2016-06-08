@@ -152,9 +152,9 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Usage:   "local Gorb endpoint (optional)",
+			Usage:   "optional Gorb connection URI",
 			Name:    "gorb",
-			EnvVars: []string{"GORB_HOST"},
+			EnvVars: []string{"GORB_URI"},
 		},
 	}
 
