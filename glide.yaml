@@ -1,0 +1,15 @@
+package: github.com/kobolog/tesson
+import:
+- package: github.com/Sirupsen/logrus
+- package: github.com/docker/engine-api
+  subpackages:
+  - client
+  - types
+  - types/container
+- package: github.com/docker/go-connections
+  subpackages:
+  - nat
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: gopkg.in/urfave/cli.v2

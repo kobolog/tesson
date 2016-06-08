@@ -239,7 +239,6 @@ func (d *docker) stop(id string, opts StopOptions) error {
 		return nil
 	}
 
-	return d.client.ContainerRemove(d.ctx, r.ID, types.ContainerRemoveOptions{
-		RemoveVolumes: true,
-	})
+	return d.client.ContainerRemove(d.ctx, r.ID,
+		types.ContainerRemoveOptions{RemoveVolumes: true})
 }
