@@ -189,15 +189,13 @@ func main() {
 			Action: exec,
 		},
 		{
-			Usage:     "list all sharded container groups",
-			ArgsUsage: " ",
-			Name:      "ps",
-			Action:    list,
+			Usage:  "list all sharded container groups",
+			Name:   "ps",
+			Action: list,
 		},
 		{
-			Usage:     "stop a sharded container group",
-			ArgsUsage: " ",
-			Name:      "stop",
+			Usage: "stop a sharded container group",
+			Name:  "stop",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:    "group",
