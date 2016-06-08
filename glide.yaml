@@ -6,9 +6,14 @@ import:
   - client
   - types
   - types/container
+  - types/filters
 - package: github.com/docker/go-connections
   subpackages:
   - nat
+- package: github.com/kobolog/gorb
+  subpackages:
+  - pulse
+  - util
 - package: golang.org/x/net
   subpackages:
   - context

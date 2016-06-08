@@ -25,15 +25,16 @@ import (
 	"os"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
+
 	"github.com/kobolog/tesson/lib"
 	"gopkg.in/urfave/cli.v2"
 
-	"golang.org/x/net/context"
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
-	d tesson.DockerContext
+	r tesson.RuntimeContext
 	t tesson.Topology
 )
 
@@ -42,14 +43,7 @@ func exec(c *cli.Context) error {
 		return cli.ShowCommandHelp(c, "run")
 	}
 
-	var (
-		opts = tesson.ExecOptions{
-			Image:  c.Args().Get(0),
-			Ports:  c.StringSlice("port"),
-			Config: c.String("config")}
-		n    int
-		name string
-	)
+	var n int
 
 	if c.Int("size") > 0 {
 		n = c.Int("size")
@@ -65,20 +59,38 @@ func exec(c *cli.Context) error {
 		return err
 	}
 
+	opts := tesson.ExecOptions{
+		Image:  c.Args().Get(0),
+		Layout: p,
+		Ports:  c.StringSlice("port"),
+		Config: c.String("config")}
+
+	var name string
+
 	if c.IsSet("group") {
 		name = c.String("group")
 	} else {
 		name = opts.Image
 	}
 
+	if c.IsSet("gorb") {
+		f, err := tesson.NewGorbFrontend(c.String("gorb"))
+
+		if err != nil {
+			return err
+		}
+
+		opts.Front = f
+	}
+
 	log.Infof("spawning %d shards, layout: %s", len(p),
 		strings.Join(p, ", "))
 
-	return d.Exec(name, opts)
+	return r.Exec(name, opts)
 }
 
 func list(c *cli.Context) error {
-	l, err := d.List()
+	l, err := r.List()
 
 	if err != nil {
 		return err
@@ -111,9 +123,21 @@ func stop(c *cli.Context) error {
 		return cli.ShowCommandHelp(c, "stop")
 	}
 
-	return d.Stop(c.String("group"), tesson.StopOptions{
+	opts := tesson.StopOptions{
 		Purge: c.Bool("purge"),
-	})
+	}
+
+	if c.IsSet("gorb") {
+		f, err := tesson.NewGorbFrontend(c.String("gorb"))
+
+		if err != nil {
+			return err
+		}
+
+		opts.Front = f
+	}
+
+	return r.Stop(c.String("group"), opts)
 }
 
 func main() {
@@ -125,6 +149,14 @@ func main() {
 	app.Name = "Tesson"
 	app.Usage = "Shard All The Things!"
 	app.Version = "0.0.1"
+
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{
+			Usage:   "local Gorb endpoint (optional)",
+			Name:    "gorb",
+			EnvVars: []string{"GORB_HOST"},
+		},
+	}
 
 	app.Commands = []*cli.Command{
 		{
@@ -163,7 +195,7 @@ func main() {
 			Action:    list,
 		},
 		{
-			Usage:     "terminate a sharded container group",
+			Usage:     "stop a sharded container group",
 			ArgsUsage: " ",
 			Name:      "stop",
 			Flags: []cli.Flag{
@@ -189,7 +221,7 @@ func main() {
 func init() {
 	var err error
 
-	d, err = tesson.NewDockerContext(context.Background())
+	r, err = tesson.NewDockerContext(context.Background())
 	if err != nil {
 		log.Fatalf("exec: %v", err)
 	}

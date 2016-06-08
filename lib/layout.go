@@ -33,7 +33,7 @@ var (
 	errInternalHwlocError = errors.New("internal hwloc error")
 )
 
-// Topology represents the machine's hardware topology.
+// Topology represents the machine's hardware layout.
 type Topology interface {
 	N() int
 	Distribute(n int, opts DistributeOptions) ([]string, error)
@@ -58,7 +58,7 @@ const (
 // NewHwlocTopology returns a Topology object for this machine,
 // implemented in terms of libhwloc.
 func NewHwlocTopology() (Topology, error) {
-	t := &topo{}
+	t := &topology{}
 
 	var r C.int
 
@@ -77,7 +77,7 @@ func NewHwlocTopology() (Topology, error) {
 	return t, nil
 }
 
-type topo struct {
+type topology struct {
 	ptr C.hwloc_topology_t
 }
 
@@ -92,11 +92,11 @@ func (g Granularity) build() C.hwloc_obj_type_t {
 	panic("topology: unknown object type")
 }
 
-func (t *topo) N() int {
+func (t *topology) N() int {
 	return int(C.hwloc_get_nbobjs_by_type(t.ptr, C.HWLOC_OBJ_CORE))
 }
 
-func (t *topo) Distribute(
+func (t *topology) Distribute(
 	n int, opts DistributeOptions) ([]string, error) {
 
 	var (

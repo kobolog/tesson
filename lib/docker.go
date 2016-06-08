@@ -26,63 +26,62 @@ import (
 	"errors"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
+	"golang.org/x/net/context"
+
 	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
+	"github.com/docker/engine-api/types/filters"
 	"github.com/docker/go-connections/nat"
 
-	"golang.org/x/net/context"
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
 	errGroupDoesNotExist = errors.New("the specified group does not exist")
 )
 
-// DockerContext represends a Docker instance client.
-type DockerContext interface {
+// RuntimeContext represents a execution runtime context.
+type RuntimeContext interface {
 	Exec(group string, opts ExecOptions) error
 	List() ([]Group, error)
 	Stop(group string, opts StopOptions) error
 }
 
-// ExecOptions specifies options for Exec.
-type ExecOptions struct {
-	Image  string
-	Layout []string
-	Ports  []string
-	Config string
-}
-
-// StopOptions specifies options for Stop.
-type StopOptions struct {
-	Purge bool
-}
-
 // Group represents runtime group status.
 type Group struct {
-	Name   string
-	Image  string
-	Shards []Shard
+	Name   string  // Group name.
+	Image  string  // Container image name.
+	Shards []Shard // Group shards.
 }
 
 // Shard represents runtime group member status
 type Shard struct {
-	Name   string
-	ID     string
-	Status string
-	CPUs   string
+	Name   string // Shard friendly name.
+	ID     string // Shard ID.
+	Status string // Shard status string.
+	CPUs   string // Bound CPU cores.
+}
+
+// ExecOptions specifies options for Exec.
+type ExecOptions struct {
+	Image  string   // Container image name.
+	Layout []string // CPU core indices to bind shards.
+	Ports  []string // Published ports.
+	Config string   // Container config file.
+	Front  Frontend // Local LB frontend.
+}
+
+// StopOptions specifies options for Stop.
+type StopOptions struct {
+	Purge bool     // Whether to remove the container.
+	Front Frontend // Local LB frontend.
 }
 
 // Implementation
 
-type docker struct {
-	ctx    context.Context
-	client *client.Client
-}
-
 // NewDockerContext returns a new Docker instance client.
-func NewDockerContext(ctx context.Context) (DockerContext, error) {
+func NewDockerContext(ctx context.Context) (RuntimeContext, error) {
 	r, err := client.NewEnvClient()
 
 	if err != nil {
@@ -92,8 +91,13 @@ func NewDockerContext(ctx context.Context) (DockerContext, error) {
 	return &docker{ctx: ctx, client: r}, nil
 }
 
+type docker struct {
+	ctx    context.Context
+	client *client.Client
+}
+
 func (d *docker) Exec(group string, opts ExecOptions) error {
-	c := container.Config{Labels: make(map[string]string)}
+	config := container.Config{Labels: map[string]string{}}
 
 	if len(opts.Config) != 0 {
 		f, err := os.Open(opts.Config)
@@ -104,26 +108,31 @@ func (d *docker) Exec(group string, opts ExecOptions) error {
 
 		defer f.Close()
 
-		if err := json.NewDecoder(bufio.NewReader(f)).Decode(&c); err != nil {
+		if err := json.NewDecoder(bufio.NewReader(f)).Decode(
+			&config,
+		); err != nil {
 			return err
 		}
 	}
 
-	c.Image, c.Labels["tesson.group"] = opts.Image, group
+	config.Image, config.Labels["tesson.group"] = opts.Image, group
 
-	_, pm, err := nat.ParsePortSpecs(opts.Ports)
+	_, portSpecs, err := nat.ParsePortSpecs(opts.Ports)
 
 	if err != nil {
 		return err
 	}
 
-	for _, shard := range opts.Layout {
-		c.Labels["tesson.shard"] = shard
+	for _, set := range opts.Layout {
+		config.Labels["tesson.shard"] = set
 
-		if err := d.exec(&c, &container.HostConfig{
-			Resources:    container.Resources{CpusetCpus: shard},
-			PortBindings: pm,
-		}); err != nil {
+		if err := d.exec(group, types.ContainerCreateConfig{
+			Config: &config,
+			HostConfig: &container.HostConfig{
+				PortBindings: portSpecs,
+				Resources:    container.Resources{CpusetCpus: set},
+			}}, opts,
+		); err != nil {
 			return err
 		}
 	}
@@ -132,8 +141,12 @@ func (d *docker) Exec(group string, opts ExecOptions) error {
 }
 
 func (d *docker) List() ([]Group, error) {
-	list, err := d.client.ContainerList(d.ctx, types.ContainerListOptions{
-		All: true,
+	f := filters.NewArgs()
+	f.Add("label", "tesson.group")
+
+	l, err := d.client.ContainerList(d.ctx, types.ContainerListOptions{
+		All:    true,
+		Filter: f,
 	})
 
 	if err != nil {
@@ -142,26 +155,21 @@ func (d *docker) List() ([]Group, error) {
 
 	m := make(map[string]*Group)
 
-	for _, c := range list {
-		var g *Group
+	for _, c := range l {
+		var (
+			label = c.Labels["tesson.group"]
+			g     *Group
+		)
 
-		if group, ok := c.Labels["tesson.group"]; !ok {
-			continue
-		} else if g = m[group]; g == nil {
-			g = &Group{Name: group, Image: c.Image}
-			m[group] = g
-		}
+		if g = m[label]; g == nil {
+			g = &Group{
+				Name: label, Image: c.Image}
 
-		var name string
-
-		if len(c.Names[0]) == 0 {
-			name = "<unknown>"
-		} else {
-			name = c.Names[0]
+			m[label] = g
 		}
 
 		g.Shards = append(g.Shards, Shard{
-			Name: name, ID: c.ID, CPUs: c.Labels["tesson.shard"],
+			Name: c.Names[0], ID: c.ID, CPUs: c.Labels["tesson.shard"],
 			Status: c.Status})
 	}
 
@@ -194,7 +202,7 @@ func (d *docker) Stop(group string, opts StopOptions) error {
 	}
 
 	for _, shard := range list[index].Shards {
-		if err := d.stop(shard.ID, opts); err != nil {
+		if err := d.stop(group, shard.ID, opts); err != nil {
 			return err
 		}
 	}
@@ -202,8 +210,11 @@ func (d *docker) Stop(group string, opts StopOptions) error {
 	return nil
 }
 
-func (d *docker) exec(c *container.Config, h *container.HostConfig) error {
-	r, err := d.client.ContainerCreate(d.ctx, c, h, nil, "")
+func (d *docker) exec(
+	group string, cfg types.ContainerCreateConfig, opts ExecOptions) error {
+
+	r, err := d.client.ContainerCreate(d.ctx,
+		cfg.Config, cfg.HostConfig, cfg.NetworkingConfig, cfg.Name)
 
 	if err != nil {
 		return err
@@ -217,28 +228,55 @@ func (d *docker) exec(c *container.Config, h *container.HostConfig) error {
 		return err
 	}
 
-	return nil
-}
+	if opts.Front == nil {
+		return nil
+	}
 
-func (d *docker) stop(id string, opts StopOptions) error {
-	r, err := d.client.ContainerInspect(d.ctx, id)
+	i, err := d.client.ContainerInspect(d.ctx, r.ID)
 
 	if err != nil {
 		return err
 	}
 
-	if r.State.Running {
-		if err := d.client.ContainerStop(d.ctx, r.ID, 30); err != nil {
+	return opts.Front.CreateShard(group, ShardOptions{
+		ID:      i.ID,
+		PortMap: i.NetworkSettings.Ports,
+	})
+}
+
+func (d *docker) stop(group, id string, opts StopOptions) error {
+	i, err := d.client.ContainerInspect(d.ctx, id)
+
+	if err != nil {
+		return err
+	}
+
+	if i.State.Running {
+		if opts.Front != nil {
+			if err := opts.Front.RemoveShard(group, ShardOptions{
+				ID:      i.ID,
+				PortMap: i.NetworkSettings.Ports,
+			}); err != nil {
+				return err
+			}
+		}
+
+		if err := d.client.ContainerStop(d.ctx, i.ID, 30); err != nil {
 			return err
 		}
 
-		log.Infof("instance stopped: %v", r.ID)
+		log.Infof("instance stopped: %v", i.ID)
 	}
 
 	if !opts.Purge {
 		return nil
 	}
 
-	return d.client.ContainerRemove(d.ctx, r.ID,
-		types.ContainerRemoveOptions{RemoveVolumes: true})
+	if err := d.client.ContainerRemove(
+		d.ctx, i.ID, types.ContainerRemoveOptions{RemoveVolumes: true},
+	); err != nil {
+		return err
+	}
+
+	return nil
 }

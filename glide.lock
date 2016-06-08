@@ -1,5 +1,5 @@
-hash: 3aab6b46f1072b8e224bbebd48438b59b85cad4e8983378138380f08571f930e
-updated: 2016-06-07T20:04:32.381992236-04:00
+hash: d0e71a184e06670d5beab53d2bb0799fb25b3b797cb1f6204afeb672adef2f38
+updated: 2016-06-08T12:12:19.007728474-04:00
 imports:
 - name: github.com/docker/distribution
   version: feddf6cd4e439577ab270d8e3ba63a5d7c5c0d55
@@ -7,29 +7,34 @@ imports:
   - reference
   - digest
 - name: github.com/docker/engine-api
-  version: 39f9289421f91ec5a9012a022cb9d0fe0c33406a
+  version: 8d58f33176ac649812a9eaa237fcd3d35ef9e4da
   subpackages:
   - client
   - types
   - types/container
+  - types/filters
   - client/transport
   - client/transport/cancellable
-  - types/filters
   - types/network
   - types/reference
   - types/registry
   - types/time
+  - types/versions
   - types/blkiodev
   - types/strslice
-  - types/versions
 - name: github.com/docker/go-connections
-  version: c7838b258fbfa3fe88eecfb2a0e08ea0dbd6a646
+  version: 990a1a1a70b0da4c4cb70e117971a4f0babfbf1a
   subpackages:
   - nat
   - sockets
   - tlsconfig
 - name: github.com/docker/go-units
   version: 09dda9d4b0d748c57c14048906d3d094a58ec0c9
+- name: github.com/kobolog/gorb
+  version: c876dee7c363eb6f4f2cc3a9d46b1bb5e0518ed5
+  subpackages:
+  - pulse
+  - util
 - name: github.com/Microsoft/go-winio
   version: 4f1a71750d95a5a8a46c40a67ffbed8129c2f138
 - name: github.com/opencontainers/runc
