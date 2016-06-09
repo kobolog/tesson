@@ -44,7 +44,7 @@ var (
 
 // RuntimeContext represents a execution runtime context.
 type RuntimeContext interface {
-	Exec(group string, opts ExecOptions) error
+	Exec(group string, opts ExecOptions) (Group, error)
 	List() ([]Group, error)
 	Info(group string) (Group, error)
 	Stop(group string, opts StopOptions) error
@@ -69,7 +69,7 @@ type Shard struct {
 // ExecOptions specifies options for Exec.
 type ExecOptions struct {
 	Image  string   // Container image name.
-	Layout []string // CPU core indices to bind shards.
+	Layout []Unit   // CPU core indices to bind shards.
 	Ports  []string // Published ports.
 	Config string   // Container config file.
 }
@@ -107,14 +107,14 @@ type docker struct {
 	client *client.Client
 }
 
-func (d *docker) Exec(group string, opts ExecOptions) error {
+func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 	config := container.Config{Labels: map[string]string{}}
 
 	if len(opts.Config) != 0 {
 		f, err := os.Open(opts.Config)
 
 		if err != nil {
-			return err
+			return Group{}, err
 		}
 
 		defer f.Close()
@@ -122,33 +122,36 @@ func (d *docker) Exec(group string, opts ExecOptions) error {
 		if err := json.NewDecoder(bufio.NewReader(f)).Decode(
 			&config,
 		); err != nil {
-			return err
+			return Group{}, err
 		}
 	}
 
 	config.Image, config.Labels["tesson.group"] = opts.Image, group
 
-	_, portSpecs, err := nat.ParsePortSpecs(opts.Ports)
+	_, portBindings, err := nat.ParsePortSpecs(opts.Ports)
 
 	if err != nil {
-		return err
+		return Group{}, err
 	}
 
-	for _, set := range opts.Layout {
-		config.Labels["tesson.shard"] = set
+	for _, u := range opts.Layout {
+		c := config // Cloned for every shard to have a clean environment.
+
+		c.Env = append(c.Env, fmt.Sprintf("GOMAXPROCS=%d", u.Weight()))
+		c.Labels["tesson.shard"] = u.String()
 
 		if err := d.exec(group, types.ContainerCreateConfig{
-			Config: &config,
+			Config: &c,
 			HostConfig: &container.HostConfig{
-				PortBindings: portSpecs,
-				Resources:    container.Resources{CpusetCpus: set},
+				PortBindings: portBindings,
+				Resources:    container.Resources{CpusetCpus: u.String()},
 			}}, opts,
 		); err != nil {
-			return err
+			return Group{}, err
 		}
 	}
 
-	return nil
+	return d.Info(group)
 }
 
 func (d *docker) List() ([]Group, error) {

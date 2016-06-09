@@ -27,6 +27,8 @@ import "C"
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 )
 
 var (
@@ -36,7 +38,13 @@ var (
 // Topology represents the machine's hardware layout.
 type Topology interface {
 	N() int
-	Distribute(n int, opts DistributeOptions) ([]string, error)
+	Distribute(n int, opts DistributeOptions) ([]Unit, error)
+}
+
+// Unit represents a unit of allocation (e.g. cpuset).
+type Unit interface {
+	String() string
+	Weight() int
 }
 
 // DistributeOptions specifies options for Distribute.
@@ -46,6 +54,18 @@ type DistributeOptions struct {
 
 // Granularity specifies distribution granularity.
 type Granularity uint
+
+// ParseGranularity parses granularity strings.
+func ParseGranularity(g string) (Granularity, error) {
+	switch strings.ToLower(g) {
+	case "node":
+		return NodeGranularity, nil
+	case "core":
+		return CoreGranularity, nil
+	}
+
+	return 0, fmt.Errorf("error parsing '%s'", g)
+}
 
 // Supported distribution granularities.
 const (
@@ -96,8 +116,23 @@ func (t *topology) N() int {
 	return int(C.hwloc_get_nbobjs_by_type(t.ptr, C.HWLOC_OBJ_CORE))
 }
 
+type unit struct {
+	c C.hwloc_cpuset_t
+}
+
+func (u unit) String() string {
+	b := [64]C.char{}
+	n := C.hwloc_bitmap_list_snprintf(&b[0], C.size_t(len(b)), u.c)
+
+	return C.GoStringN(&b[0], n)
+}
+
+func (u unit) Weight() int {
+	return int(C.hwloc_bitmap_weight(u.c))
+}
+
 func (t *topology) Distribute(
-	n int, opts DistributeOptions) ([]string, error) {
+	n int, opts DistributeOptions) ([]Unit, error) {
 
 	var (
 		roots = C.hwloc_get_root_obj(t.ptr)
@@ -109,12 +144,10 @@ func (t *topology) Distribute(
 	C.hwloc_distribute(
 		t.ptr, roots, &l[0], C.uint(len(l)), C.uint(depth))
 
-	r := make([]string, n)
-	b := [64]C.char{}
+	r := make([]Unit, n)
 
 	for i, c := range l {
-		n := C.hwloc_bitmap_list_snprintf(&b[0], C.size_t(len(b)), c)
-		r[i] = C.GoStringN(&b[0], n)
+		r[i] = &unit{c: c}
 	}
 
 	return r, nil
