@@ -93,7 +93,7 @@ func NewDockerContext(ctx context.Context) (RuntimeContext, error) {
 	return &docker{ctx: ctx, client: r}, nil
 }
 
-func toShard(c types.Container) Shard {
+func _ContainerToShard(c types.Container) Shard {
 	return Shard{
 		Name:   c.Names[0],
 		ID:     c.ID,
@@ -180,7 +180,7 @@ func (d *docker) List() ([]Group, error) {
 			m[label] = g
 		}
 
-		g.Shards = append(g.Shards, toShard(c))
+		g.Shards = append(g.Shards, _ContainerToShard(c))
 	}
 
 	var r []Group
@@ -212,7 +212,7 @@ func (d *docker) Info(group string) (Group, error) {
 	g := Group{Name: group, Image: l[0].Image}
 
 	for _, c := range l {
-		g.Shards = append(g.Shards, toShard(c))
+		g.Shards = append(g.Shards, _ContainerToShard(c))
 	}
 
 	return g, nil
