@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"golang.org/x/net/context"
 
@@ -112,16 +113,20 @@ func list(c *cli.Context) error {
 		return nil
 	}
 
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
+
 	for i, g := range l {
-		n, _ := fmt.Printf("Group: %s (%s)\n", g.Name, g.Image)
+		n, _ := fmt.Printf("Group: %s [%s]\n", g.Name, g.Image)
 		fmt.Println(strings.Repeat("-", n-1))
 
-		for _, shard := range g.Shards {
-			fmt.Printf(
-				"|- [%s] %s (%s) unit layout: %s\n",
-				shard.Status,
-				shard.Name, shard.ID[:8], shard.CPUs)
+		fmt.Fprintf(w, "INSTANCE ID\tSTATUS\tNAME\tLAYOUT\n")
+
+		for _, s := range g.Shards {
+			fmt.Fprintf(w, "%.8s\t%s\t%s\t%s\n", s.ID, s.Status,
+				s.Name, s.CPUs)
 		}
+
+		w.Flush()
 
 		if i < len(l)-1 {
 			fmt.Println()
