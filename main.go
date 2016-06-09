@@ -112,7 +112,7 @@ func list(c *cli.Context) error {
 		return nil
 	}
 
-	for _, g := range l {
+	for i, g := range l {
 		n, _ := fmt.Printf("Group: %s (%s)\n", g.Name, g.Image)
 		fmt.Println(strings.Repeat("-", n-1))
 
@@ -123,7 +123,9 @@ func list(c *cli.Context) error {
 				shard.Name, shard.ID[:8], shard.CPUs)
 		}
 
-		fmt.Println()
+		if i < len(l)-1 {
+			fmt.Println()
+		}
 	}
 
 	return nil
