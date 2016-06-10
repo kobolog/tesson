@@ -109,7 +109,6 @@ func list(c *cli.Context) error {
 	}
 
 	if len(l) == 0 {
-		log.Info("no sharded container groups found!")
 		return nil
 	}
 
