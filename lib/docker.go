@@ -91,13 +91,13 @@ type docker struct {
 	client *client.Client
 }
 
-type configFile struct {
+type config struct {
 	container.Config
 	HostConfig container.HostConfig
 }
 
 func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
-	cfg := configFile{
+	cfg := config{
 		Config: container.Config{Labels: map[string]string{}}}
 
 	if len(opts.Config) != 0 {
