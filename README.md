@@ -36,7 +36,7 @@ Alternatively, you can provide Gorb URI via an environment variable `GORB_URI`.
 
 ## TODO
 
-- [ ] Support for HostConfig for machine-specific user-defined configuration.
+- [x] Support for HostConfig for machine-specific user-defined configuration.
 - [x] Better understanding of Docker container states: get rid of zombie instances in active groups.
 - [ ] Use [macvlan Docker driver](https://github.com/docker/docker/blob/master/experimental/vlan-networks.md) & IPVS DR mode for local load balancing.
 - [ ] Hardware device locality: allow pinning to NICs, disk subsystems, etc.

@@ -91,8 +91,14 @@ type docker struct {
 	client *client.Client
 }
 
+type configFile struct {
+	container.Config
+	HostConfig container.HostConfig
+}
+
 func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
-	config := container.Config{Labels: map[string]string{}}
+	cfg := configFile{
+		Config: container.Config{Labels: map[string]string{}}}
 
 	if len(opts.Config) != 0 {
 		b, err := ioutil.ReadFile(opts.Config)
@@ -101,33 +107,33 @@ func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 			return Group{}, err
 		}
 
-		if err := json.Unmarshal(b, &config); err != nil {
+		if err := json.Unmarshal(b, &cfg); err != nil {
 			return Group{}, err
 		}
 	}
 
-	config.Image, config.Labels["tesson.group"] = opts.Image, group
-
-	_, portBindings, err := nat.ParsePortSpecs(opts.Ports)
+	_, bindings, err := nat.ParsePortSpecs(opts.Ports)
 
 	if err != nil {
 		return Group{}, err
 	}
 
+	cfg.Image = opts.Image
+	cfg.HostConfig.PortBindings = bindings
+	cfg.Labels["tesson.group"] = group
+
 	for _, u := range opts.Layout {
-		c := config // Cloned for every shard to have a clean environment.
+		c := cfg // Copied for each unit to have a pristine environment.
 
-		c.Env = append(c.Env, fmt.Sprintf("GOMAXPROCS=%d", u.Weight()))
-
+		c.HostConfig.Resources.CpusetCpus = u.String()
 		c.Labels["tesson.unit.cpuset"] = u.String()
 		c.Labels["tesson.unit.weight"] = strconv.Itoa(u.Weight())
 
+		c.Env = append(c.Env, fmt.Sprintf("GOMAXPROCS=%d", u.Weight()))
+
 		if err := d.exec(group, types.ContainerCreateConfig{
-			Config: &c,
-			HostConfig: &container.HostConfig{
-				PortBindings: portBindings,
-				Resources:    container.Resources{CpusetCpus: u.String()},
-			}}, opts,
+			Config:     &c.Config,
+			HostConfig: &c.HostConfig}, opts,
 		); err != nil {
 			return Group{}, err
 		}
