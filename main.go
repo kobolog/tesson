@@ -19,6 +19,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -110,6 +111,16 @@ func list(c *cli.Context) error {
 		return nil
 	}
 
+	if c.IsSet("json") {
+		json.NewEncoder(os.Stdout).Encode(l)
+	} else {
+		tabulate(l)
+	}
+
+	return nil
+}
+
+func tabulate(l []tesson.Group) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
 
 	for i, g := range l {
@@ -129,8 +140,6 @@ func list(c *cli.Context) error {
 			fmt.Println()
 		}
 	}
-
-	return nil
 }
 
 func stop(c *cli.Context) error {
@@ -217,8 +226,14 @@ func main() {
 			Action: exec,
 		},
 		{
-			Usage:  "list all sharded container groups",
-			Name:   "ps",
+			Usage: "list all sharded container groups",
+			Name:  "ps",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Usage: "format output as json",
+					Name:  "json",
+				},
+			},
 			Action: list,
 		},
 		{

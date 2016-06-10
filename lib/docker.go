@@ -119,7 +119,7 @@ func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 
 		c.Env = append(c.Env, fmt.Sprintf("GOMAXPROCS=%d", u.Weight()))
 
-		c.Labels["tesson.unit.string"] = u.String()
+		c.Labels["tesson.unit.cpuset"] = u.String()
 		c.Labels["tesson.unit.weight"] = strconv.Itoa(u.Weight())
 
 		if err := d.exec(group, types.ContainerCreateConfig{
@@ -277,17 +277,17 @@ func (d *docker) stop(group, id string, opts StopOptions) error {
 	return nil
 }
 
-type dockerUnit struct {
-	unit   string
-	weight int
+type unitInfo struct {
+	CPUSet string
+	NumCPU int
 }
 
-func (u dockerUnit) String() string {
-	return u.unit
+func (u unitInfo) String() string {
+	return u.CPUSet
 }
 
-func (u dockerUnit) Weight() int {
-	return u.weight
+func (u unitInfo) Weight() int {
+	return u.NumCPU
 }
 
 func _ContainerToShard(c types.Container) Shard {
@@ -297,7 +297,7 @@ func _ContainerToShard(c types.Container) Shard {
 		panic(err)
 	}
 
-	u := &dockerUnit{unit: c.Labels["tesson.unit.string"], weight: w}
+	u := &unitInfo{CPUSet: c.Labels["tesson.unit.cpuset"], NumCPU: w}
 
 	return Shard{
 		Name:   strings.Join(c.Names, "; "),
