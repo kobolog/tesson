@@ -1,4 +1,7 @@
-## Tesson [![Build Status](https://travis-ci.org/kobolog/tesson.svg?branch=master)](https://travis-ci.org/kobolog/tesson) [![License](https://img.shields.io/github/license/kobolog/tesson.svg)](LICENSE)
+## Tesson
+[![Build Status](https://travis-ci.org/kobolog/tesson.svg?branch=master)](https://travis-ci.org/kobolog/tesson)
+[![GoDoc](https://godoc.org/github.com/kobolog/tesson/lib?status.svg)](https://godoc.org/github.com/kobolog/tesson/lib)
+[![License](https://img.shields.io/github/license/kobolog/tesson.svg)](LICENSE)
 
 **Shard All The Things!**
 
