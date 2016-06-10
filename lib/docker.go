@@ -97,8 +97,7 @@ type config struct {
 }
 
 func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
-	cfg := config{
-		Config: container.Config{Labels: map[string]string{}}}
+	cfg := config{Config: container.Config{Labels: map[string]string{}}}
 
 	if len(opts.Config) != 0 {
 		b, err := ioutil.ReadFile(opts.Config)
