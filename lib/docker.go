@@ -112,10 +112,24 @@ func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 		}
 	}
 
-	_, bindings, err := nat.ParsePortSpecs(opts.Ports)
+	var bindings nat.PortMap
 
-	if err != nil {
-		return Group{}, err
+	if cfg.HostConfig.PortBindings == nil && len(opts.Ports) > 0 {
+		bindings = make(nat.PortMap)
+	} else {
+		bindings = cfg.HostConfig.PortBindings
+	}
+
+	for _, p := range opts.Ports {
+		l, err := nat.ParsePortSpec(p)
+
+		if err != nil {
+			return Group{}, err
+		}
+
+		for _, n := range l {
+			bindings[n.Port] = append(bindings[n.Port], n.Binding)
+		}
 	}
 
 	cfg.Image = opts.Image
