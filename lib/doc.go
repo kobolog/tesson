@@ -20,8 +20,8 @@
 //
 // Tesson has several main abstractions: Topology, RuntimeContext and Frontend.
 //
-// Topology's responsible for gathering the information about hardware layout,
-// analysing it and generating a deployment plan.
+// Topology's responsible for gathering the information about hardware layout
+// of the machine, analysing it and generating a deployment plan.
 //
 // RuntimeContext is an abstraction over execution engine, e.g. Docker Engine.
 // It is supposed to spin up instances based on the deployment plan provided by

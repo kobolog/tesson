@@ -36,7 +36,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// Frontend represents a local load balancer.
+// Frontend represents a load balancer.
 type Frontend interface {
 	CreateService(group string, shards []Shard) error
 	RemoveService(group string, shards []Shard) error
@@ -106,7 +106,7 @@ type serviceRequest struct {
 }
 
 func (g *gorb) createService(vsID string, p types.Port) error {
-	log.Infof("registering group service: %s", vsID)
+	log.Infof("registering group service: %s.", vsID)
 
 	request := serviceRequest{
 		Port: uint(p.PrivatePort), Protocol: p.Type}
@@ -130,7 +130,7 @@ type backendRequest struct {
 }
 
 func (g *gorb) createBackend(vsID, rsID string, p types.Port) error {
-	log.Infof("registering shard: %s/%s", vsID, rsID)
+	log.Infof("registering shard: %s/%s.", vsID, rsID)
 
 	request := backendRequest{
 		Host: p.IP, Port: uint(p.PublicPort)}
@@ -153,10 +153,10 @@ func (g *gorb) createBackend(vsID, rsID string, p types.Port) error {
 
 	return g.roundtrip(r, errorDispatch{
 		http.StatusConflict: func() error {
-			return fmt.Errorf("shard [%s] does exist", rsID)
+			return fmt.Errorf("shard [%s] already exists", rsID)
 		},
 		http.StatusNotFound: func() error {
-			return fmt.Errorf("service [%s] not found", vsID)
+			return fmt.Errorf("service [%s] does not exist", vsID)
 		}})
 }
 
@@ -176,14 +176,14 @@ func (g *gorb) RemoveService(group string, shards []Shard) error {
 	u := *g.url
 
 	for vsID := range vsIDs {
-		log.Infof("withdrawing group service registration: %s", vsID)
+		log.Infof("withdrawing group service registration: %s.", vsID)
 
 		u.Path = path.Join("service", vsID)
 		r, _ := http.NewRequest("DELETE", u.String(), nil)
 
 		if err := g.roundtrip(r, errorDispatch{
 			http.StatusNotFound: func() error {
-				return fmt.Errorf("service [%s] not found", vsID)
+				return fmt.Errorf("service [%s] does not exist", vsID)
 			}},
 		); err != nil {
 			return err
@@ -215,7 +215,7 @@ func (g *gorb) roundtrip(req *http.Request, ed errorDispatch) error {
 	if err == nil {
 		defer r.Body.Close()
 	} else {
-		return fmt.Errorf("http error: %s", err)
+		return fmt.Errorf("http error: %v", err)
 	}
 
 	if r.StatusCode == http.StatusOK {

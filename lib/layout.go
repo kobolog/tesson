@@ -33,7 +33,7 @@ var (
 	errInternalHwlocError = errors.New("internal hwloc error")
 )
 
-// Topology represents the machine's hardware layout.
+// Topology represents the hardware layout of a machine.
 type Topology interface {
 	N() int
 	Distribute(n int, opts DistributeOptions) ([]Unit, error)
@@ -65,7 +65,7 @@ func ParseGranularity(g string) (Granularity, error) {
 	return 0, fmt.Errorf("error parsing '%s'", g)
 }
 
-// Supported distribution granularities.
+// A list of supported distribution granularities.
 const (
 	NodeGranularity Granularity = iota
 	CoreGranularity
@@ -73,7 +73,7 @@ const (
 
 // Implementation
 
-// NewHwlocTopology returns a Topology object for this machine,
+// NewHwlocTopology constructs a Topology for the local machine,
 // implemented in terms of libhwloc.
 func NewHwlocTopology() (Topology, error) {
 	t := &topology{}

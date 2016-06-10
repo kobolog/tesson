@@ -19,11 +19,11 @@
 package tesson
 
 import (
-	"bufio"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os"
+	"io/ioutil"
+	"strconv"
+	"strings"
 
 	"golang.org/x/net/context"
 
@@ -36,11 +36,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-var (
-	errGroupDoesNotExist = errors.New("the specified group does not exist")
-)
-
-// RuntimeContext represents a execution runtime context.
+// RuntimeContext represents an execution engine.
 type RuntimeContext interface {
 	Exec(group string, opts ExecOptions) (Group, error)
 	List() ([]Group, error)
@@ -50,37 +46,36 @@ type RuntimeContext interface {
 
 // Group represents runtime group status.
 type Group struct {
-	Name   string  // Group name.
+	Name   string  // Human-readable group name.
 	Image  string  // Container image name.
-	Shards []Shard // Group shards.
+	Shards []Shard // Associated shards.
 }
 
-// Shard represents runtime group member status
+// Shard represents runtime shard status.
 type Shard struct {
-	Name   string // Shard friendly name.
-	ID     string // Shard ID.
-	Status string // Shard status string.
-	CPUs   string // Bound CPU cores.
+	Name   string // Human-readable shard name.
+	ID     string // Unique shard ID.
+	Status string // Status string.
+	Unit   Unit   // Hardware layout.
 	Ports  []types.Port
 }
 
 // ExecOptions specifies options for Exec.
 type ExecOptions struct {
 	Image  string   // Container image name.
-	Layout []Unit   // CPU core indices to bind shards.
-	Ports  []string // Published ports.
+	Layout []Unit   // Hardware layout.
+	Ports  []string // Exposed ports to publish.
 	Config string   // Container config file.
 }
 
 // StopOptions specifies options for Stop.
 type StopOptions struct {
-	Purge bool     // Whether to remove the container.
-	Front Frontend // Local LB frontend.
+	Purge bool // Removes the container and its volumes.
 }
 
 // Implementation
 
-// NewDockerContext returns a new Docker instance client.
+// NewDockerContext constructs a new Docker-powered RuntimeContext.
 func NewDockerContext(ctx context.Context) (RuntimeContext, error) {
 	r, err := client.NewEnvClient()
 
@@ -89,15 +84,6 @@ func NewDockerContext(ctx context.Context) (RuntimeContext, error) {
 	}
 
 	return &docker{ctx: ctx, client: r}, nil
-}
-
-func _ContainerToShard(c types.Container) Shard {
-	return Shard{
-		Name:   c.Names[0],
-		ID:     c.ID,
-		CPUs:   c.Labels["tesson.shard"],
-		Status: c.Status,
-		Ports:  c.Ports}
 }
 
 type docker struct {
@@ -109,17 +95,13 @@ func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 	config := container.Config{Labels: map[string]string{}}
 
 	if len(opts.Config) != 0 {
-		f, err := os.Open(opts.Config)
+		b, err := ioutil.ReadFile(opts.Config)
 
 		if err != nil {
 			return Group{}, err
 		}
 
-		defer f.Close()
-
-		if err := json.NewDecoder(bufio.NewReader(f)).Decode(
-			&config,
-		); err != nil {
+		if err := json.Unmarshal(b, &config); err != nil {
 			return Group{}, err
 		}
 	}
@@ -136,7 +118,9 @@ func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 		c := config // Cloned for every shard to have a clean environment.
 
 		c.Env = append(c.Env, fmt.Sprintf("GOMAXPROCS=%d", u.Weight()))
-		c.Labels["tesson.shard"] = u.String()
+
+		c.Labels["tesson.unit.string"] = u.String()
+		c.Labels["tesson.unit.weight"] = strconv.Itoa(u.Weight())
 
 		if err := d.exec(group, types.ContainerCreateConfig{
 			Config: &c,
@@ -204,7 +188,7 @@ func (d *docker) Info(group string) (Group, error) {
 	}
 
 	if len(l) == 0 {
-		return Group{}, errGroupDoesNotExist
+		return Group{}, fmt.Errorf("group [%s] does not exist", group)
 	}
 
 	g := Group{Name: group, Image: l[0].Image}
@@ -232,7 +216,7 @@ func (d *docker) Stop(group string, opts StopOptions) error {
 	}
 
 	if index >= len(list) {
-		return errGroupDoesNotExist
+		return fmt.Errorf("group [%s] does not exist", group)
 	}
 
 	for _, shard := range list[index].Shards {
@@ -254,19 +238,13 @@ func (d *docker) exec(
 		return err
 	}
 
-	log.Infof("instance created: %v", r.ID)
+	log.Infof("instance created: %v.", r.ID)
 
 	if err := d.client.ContainerStart(
 		d.ctx, r.ID, types.ContainerStartOptions{},
 	); err != nil {
 		return err
 	}
-
-	// i, err := d.client.ContainerInspect(d.ctx, r.ID)
-	//
-	// if err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
@@ -283,7 +261,7 @@ func (d *docker) stop(group, id string, opts StopOptions) error {
 			return err
 		}
 
-		log.Infof("instance stopped: %v", i.ID)
+		log.Infof("instance stopped: %v.", i.ID)
 	}
 
 	if !opts.Purge {
@@ -297,4 +275,34 @@ func (d *docker) stop(group, id string, opts StopOptions) error {
 	}
 
 	return nil
+}
+
+type dockerUnit struct {
+	unit   string
+	weight int
+}
+
+func (u dockerUnit) String() string {
+	return u.unit
+}
+
+func (u dockerUnit) Weight() int {
+	return u.weight
+}
+
+func _ContainerToShard(c types.Container) Shard {
+	w, err := strconv.Atoi(c.Labels["tesson.unit.weight"])
+
+	if err != nil {
+		panic(err)
+	}
+
+	u := &dockerUnit{unit: c.Labels["tesson.unit.string"], weight: w}
+
+	return Shard{
+		Name:   strings.Join(c.Names, "; "),
+		ID:     c.ID,
+		Status: c.Status,
+		Unit:   u,
+		Ports:  c.Ports}
 }

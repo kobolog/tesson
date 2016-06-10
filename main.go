@@ -33,8 +33,8 @@ import (
 )
 
 var (
-	r tesson.RuntimeContext
 	t tesson.Topology
+	r tesson.RuntimeContext
 )
 
 func exec(c *cli.Context) error {
@@ -78,7 +78,7 @@ func exec(c *cli.Context) error {
 		group = opts.Image
 	}
 
-	log.Infof("spawning %d shards, layout: %v", len(l), l)
+	log.Infof("spawning %d shards, layout: %v.", len(l), l)
 
 	i, err := r.Exec(group, opts)
 
@@ -120,7 +120,7 @@ func list(c *cli.Context) error {
 
 		for _, s := range g.Shards {
 			fmt.Fprintf(w, "%.8s\t%s\t%s\t%s\n", s.ID, s.Status,
-				s.Name, s.CPUs)
+				s.Name, s.Unit)
 		}
 
 		w.Flush()
@@ -175,7 +175,7 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Usage:   "optional Gorb connection URI",
+			Usage:   "Gorb connection URI (optional)",
 			Name:    "gorb",
 			EnvVars: []string{"GORB_URI"},
 		},
@@ -240,20 +240,20 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		log.Fatalf("%s.", err)
 	}
 }
 
 func init() {
 	var err error
 
-	r, err = tesson.NewDockerContext(context.Background())
-	if err != nil {
-		log.Fatalf("exec: %v", err)
-	}
-
 	t, err = tesson.NewHwlocTopology()
 	if err != nil {
-		log.Fatalf("topo: %v", err)
+		log.Fatalf("topo: %v.", err)
+	}
+
+	r, err = tesson.NewDockerContext(context.Background())
+	if err != nil {
+		log.Fatalf("exec: %v.", err)
 	}
 }
