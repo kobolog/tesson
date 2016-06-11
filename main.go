@@ -184,7 +184,7 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
-			Usage:   "Gorb connection URI (optional)",
+			Usage:   "Gorb connection `URI` (optional)",
 			Name:    "gorb",
 			EnvVars: []string{"GORB_URI"},
 		},
@@ -197,27 +197,27 @@ func main() {
 			Name:      "run",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Usage:   "sharded container group name",
+					Usage:   "sharded container group `NAME`",
 					Name:    "group",
 					Aliases: []string{"g"},
 				},
 				&cli.StringFlag{
-					Usage:   "container config",
+					Usage:   "container config `FILE`",
 					Name:    "config",
 					Aliases: []string{"c"},
 				},
 				&cli.StringSliceFlag{
-					Usage:   "ports to publish",
+					Usage:   "`PORT` to publish",
 					Name:    "port",
 					Aliases: []string{"p"},
 				},
 				&cli.IntFlag{
-					Usage:   "number of instances",
+					Usage:   "`NUMBER` of instances",
 					Name:    "size",
 					Aliases: []string{"n"},
 				},
 				&cli.StringFlag{
-					Usage:   "distribution unit",
+					Usage:   "binding `UNIT`",
 					Name:    "unit",
 					Aliases: []string{"u"},
 					Value:   "core",
@@ -243,7 +243,7 @@ func main() {
 				&cli.StringFlag{
 					Name:    "group",
 					Aliases: []string{"g"},
-					Usage:   "sharded container group name",
+					Usage:   "sharded container group `NAME`",
 				},
 				&cli.BoolFlag{
 					Name:  "purge",
