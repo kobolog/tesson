@@ -148,7 +148,7 @@ func (g *gorb) createBackend(vsID, rsID string, p types.Port) error {
 	u := *g.url
 	u.Path = path.Join("service", vsID, rsID)
 
-	r, _ := http.NewRequest("PUT", u.String(), bytes.NewBuffer(
+	r, _ := http.NewRequest("PUT", u.String(), bytes.NewReader(
 		util.MustMarshal(request, util.JSONOptions{})))
 
 	return g.roundtrip(r, errorDispatch{
