@@ -181,7 +181,7 @@ func (d *docker) List() ([]Group, error) {
 			m[label] = g
 		}
 
-		g.Shards = append(g.Shards, _ContainerToShard(c))
+		g.Shards = append(g.Shards, d.convert(c))
 	}
 
 	var r []Group
@@ -213,32 +213,20 @@ func (d *docker) Info(group string) (Group, error) {
 	g := Group{Name: group, Image: l[0].Image}
 
 	for _, c := range l {
-		g.Shards = append(g.Shards, _ContainerToShard(c))
+		g.Shards = append(g.Shards, d.convert(c))
 	}
 
 	return g, nil
 }
 
 func (d *docker) Stop(group string, opts StopOptions) error {
-	list, err := d.List()
+	i, err := d.Info(group)
 
 	if err != nil {
 		return err
 	}
 
-	var index int
-
-	for index = 0; index < len(list); index++ {
-		if list[index].Name == group {
-			break
-		}
-	}
-
-	if index >= len(list) {
-		return fmt.Errorf("group [%s] does not exist", group)
-	}
-
-	for _, shard := range list[index].Shards {
+	for _, shard := range i.Shards {
 		if err := d.stop(group, shard.ID, opts); err != nil {
 			return err
 		}
@@ -248,10 +236,10 @@ func (d *docker) Stop(group string, opts StopOptions) error {
 }
 
 func (d *docker) exec(
-	group string, cfg types.ContainerCreateConfig, opts ExecOptions) error {
+	group string, c types.ContainerCreateConfig, opts ExecOptions) error {
 
 	r, err := d.client.ContainerCreate(d.ctx,
-		cfg.Config, cfg.HostConfig, cfg.NetworkingConfig, cfg.Name)
+		c.Config, c.HostConfig, c.NetworkingConfig, c.Name)
 
 	if err != nil {
 		return err
@@ -309,7 +297,7 @@ func (u unitInfo) Weight() int {
 	return u.NumCPU
 }
 
-func _ContainerToShard(c types.Container) Shard {
+func (d *docker) convert(c types.Container) Shard {
 	w, err := strconv.Atoi(c.Labels["tesson.unit.weight"])
 
 	if err != nil {
