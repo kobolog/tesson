@@ -76,7 +76,7 @@ const (
 // NewHwlocTopology constructs a Topology for the local machine,
 // implemented in terms of libhwloc.
 func NewHwlocTopology() (Topology, error) {
-	t := &topology{}
+	t := &hwloc{}
 
 	var r C.int
 
@@ -95,22 +95,11 @@ func NewHwlocTopology() (Topology, error) {
 	return t, nil
 }
 
-type topology struct {
+type hwloc struct {
 	ptr C.hwloc_topology_t
 }
 
-func (g Granularity) build() C.hwloc_obj_type_t {
-	switch g {
-	case NodeGranularity:
-		return C.HWLOC_OBJ_NODE
-	case CoreGranularity:
-		return C.HWLOC_OBJ_CORE
-	}
-
-	panic("topology: unknown object type")
-}
-
-func (t *topology) N() int {
+func (t *hwloc) N() int {
 	return int(C.hwloc_get_nbobjs_by_type(t.ptr, C.HWLOC_OBJ_CORE))
 }
 
@@ -129,7 +118,7 @@ func (u unit) Weight() int {
 	return int(C.hwloc_bitmap_weight(u.c))
 }
 
-func (t *topology) Distribute(
+func (t *hwloc) Distribute(
 	n int, opts DistributeOptions) ([]Unit, error) {
 
 	var (
@@ -149,4 +138,15 @@ func (t *topology) Distribute(
 	}
 
 	return r, nil
+}
+
+func (g Granularity) build() C.hwloc_obj_type_t {
+	switch g {
+	case NodeGranularity:
+		return C.HWLOC_OBJ_NODE
+	case CoreGranularity:
+		return C.HWLOC_OBJ_CORE
+	}
+
+	panic("hwloc: granularity type not supported")
 }
