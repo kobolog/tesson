@@ -5,10 +5,11 @@ addons:
         packages:
             - libhwloc-dev
 
-install: true
-
 language: go
 
 go:
     - 1.6
     - tip
+
+install: true # vendored deps.
+script: go test -v . ./lib/...
