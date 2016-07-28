@@ -1,6 +1,5 @@
 package: github.com/kobolog/tesson
 import:
-- package: github.com/Sirupsen/logrus
 - package: github.com/docker/engine-api
   version: 8d58f33176ac649812a9eaa237fcd3d35ef9e4da
   subpackages:
@@ -9,14 +8,16 @@ import:
   - types/container
   - types/filters
 - package: github.com/docker/go-connections
+  version: 990a1a1a70b0da4c4cb70e117971a4f0babfbf1a
   subpackages:
   - nat
 - package: github.com/kobolog/gorb
   subpackages:
   - pulse
   - util
+- package: github.com/Sirupsen/logrus
 - package: golang.org/x/net
   subpackages:
   - context
 - package: gopkg.in/urfave/cli.v2
-  versiob: 3f702904c5bbdce408b9ddc511b94bbc4d919fcb
+  version: ee2e8aa5b22f55f006c27fd35765c62249a39aad
