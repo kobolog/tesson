@@ -137,14 +137,16 @@ func (d *docker) Exec(group string, opts ExecOptions) (Group, error) {
 	cfg.HostConfig.PortBindings = bindings
 	cfg.Labels["tesson.group"] = group
 
-	for _, u := range opts.Layout {
-		c := cfg // Copied for each unit to have a pristine environment.
+	for i, u := range opts.Layout {
+		c := cfg // Copied for each unit to have a clean environment.
 
 		c.HostConfig.Resources.CpusetCpus = u.String()
 		c.Labels["tesson.unit.cpuset"] = u.String()
 		c.Labels["tesson.unit.weight"] = strconv.Itoa(u.Weight())
 
-		c.Env = append(c.Env, fmt.Sprintf("GOMAXPROCS=%d", u.Weight()))
+		c.Env = append(c.Env, []string{
+			fmt.Sprintf("GOMAXPROCS=%d", u.Weight()),
+			fmt.Sprintf("TESSON_UID=%d", i)}...)
 
 		if err := d.exec(group, types.ContainerCreateConfig{
 			Config:     &c.Config,
