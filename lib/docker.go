@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -70,7 +71,8 @@ type ExecOptions struct {
 
 // StopOptions specifies options for Stop.
 type StopOptions struct {
-	Purge bool // Removes the container and its volumes.
+	Purge   bool          // Removes the container and its volumes.
+	Timeout time.Duration // Timeout to SIGKILL.
 }
 
 // Implementation
@@ -264,7 +266,8 @@ func (d *docker) stop(group, id string, opts StopOptions) error {
 	}
 
 	if i.State.Running {
-		if err := d.client.ContainerStop(d.ctx, i.ID, 30); err != nil {
+		if err :=
+			d.client.ContainerStop(d.ctx, i.ID, opts.Timeout); err != nil {
 			return err
 		}
 

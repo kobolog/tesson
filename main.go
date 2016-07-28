@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -168,7 +169,8 @@ func stop(c *cli.Context) error {
 	}
 
 	return r.Stop(group, tesson.StopOptions{
-		Purge: c.Bool("purge"),
+		Purge:   c.Bool("purge"),
+		Timeout: 30 * time.Second,
 	})
 }
 
