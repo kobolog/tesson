@@ -175,22 +175,20 @@ func stop(c *cli.Context) error {
 }
 
 func main() {
-	app := cli.NewApp()
-
-	app.Authors = []*cli.Author{
-		{Name: "Andrey Sibiryov", Email: "me@kobology.ru"}}
-
-	app.Name = "Tesson"
-	app.Usage = "Shard All The Things!"
-	app.Version = "0.0.1"
+	app := &cli.App{
+		Authors: []*cli.Author{
+			{Name: "Andrey Sibiryov", Email: "me@kobology.ru"},
+		},
+		Name:    "Tesson",
+		Usage:   "Shard All The Things!",
+		Version: "0.0.1"}
 
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Usage:   "Gorb connection `URI` (optional)",
 			Name:    "gorb",
 			EnvVars: []string{"GORB_URI"},
-		},
-	}
+		}}
 
 	app.Commands = []*cli.Command{
 		{
@@ -253,8 +251,7 @@ func main() {
 				},
 			},
 			Action: stop,
-		},
-	}
+		}}
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatalf("%s.", err)
@@ -265,11 +262,13 @@ func init() {
 	var err error
 
 	t, err = tesson.NewHwlocTopology()
+
 	if err != nil {
 		log.Fatalf("topo: %v.", err)
 	}
 
 	r, err = tesson.NewDockerContext(context.Background())
+
 	if err != nil {
 		log.Fatalf("exec: %v.", err)
 	}

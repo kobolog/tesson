@@ -1,8 +1,8 @@
-hash: d0e71a184e06670d5beab53d2bb0799fb25b3b797cb1f6204afeb672adef2f38
-updated: 2016-06-08T12:12:19.007728474-04:00
+hash: 3f3dbccfb0d65f063f0e20f8c25bb85fb82a443f454cca7966cec2ccd18e9b9a
+updated: 2016-07-28T13:46:44.227615772-04:00
 imports:
 - name: github.com/docker/distribution
-  version: feddf6cd4e439577ab270d8e3ba63a5d7c5c0d55
+  version: 87917f30529e6a7fca8eaff2932424915fb11225
   subpackages:
   - reference
   - digest
@@ -29,30 +29,30 @@ imports:
   - sockets
   - tlsconfig
 - name: github.com/docker/go-units
-  version: 09dda9d4b0d748c57c14048906d3d094a58ec0c9
+  version: f2d77a61e3c169b43402a0a1e84f06daf29b8190
 - name: github.com/kobolog/gorb
-  version: c876dee7c363eb6f4f2cc3a9d46b1bb5e0518ed5
+  version: 606b2182009802cbb2a26c0b331685d94646a69f
   subpackages:
   - pulse
   - util
 - name: github.com/Microsoft/go-winio
-  version: 4f1a71750d95a5a8a46c40a67ffbed8129c2f138
+  version: ce2922f643c8fd76b46cadc7f404a06282678b34
 - name: github.com/opencontainers/runc
-  version: e34cb45a49beb83ababfa32df43b8e7e27f0ac51
+  version: 522674998576b3aefdde233ffab20f763b83ac19
   subpackages:
   - libcontainer/user
 - name: github.com/Sirupsen/logrus
-  version: f3cfb454f4c209e6668c95216c4744b8fddb2356
+  version: a283a10442df8dc09befd873fab202bf8a253d6a
 - name: golang.org/x/net
   version: 4876518f9e71663000c348837735820161a42df7
   subpackages:
   - context
   - proxy
 - name: golang.org/x/sys
-  version: 076b546753157f758b316e59bcb51e6807c04057
+  version: a646d33e2ee3172a661fc09bca23bb4889a41bc8
   subpackages:
   - unix
   - windows
 - name: gopkg.in/urfave/cli.v2
-  version: 3f702904c5bbdce408b9ddc511b94bbc4d919fcb
-devImports: []
+  version: ee2e8aa5b22f55f006c27fd35765c62249a39aad
+testImports: []
