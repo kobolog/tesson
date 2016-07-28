@@ -5,8 +5,7 @@ addons:
         packages:
             - libhwloc-dev
 
-install:
-    glide install
+install: true
 
 language: go
 
