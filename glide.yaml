@@ -2,6 +2,7 @@ package: github.com/kobolog/tesson
 import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/docker/engine-api
+  version: 8d58f33176ac649812a9eaa237fcd3d35ef9e4da
   subpackages:
   - client
   - types
@@ -18,3 +19,4 @@ import:
   subpackages:
   - context
 - package: gopkg.in/urfave/cli.v2
+  versiob: 3f702904c5bbdce408b9ddc511b94bbc4d919fcb
