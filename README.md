@@ -1,8 +1,10 @@
-# Tesson [![Build Status](https://travis-ci.org/kobolog/tesson.svg?branch=master)](https://travis-ci.org/kobolog/tesson) [![Codewake](https://www.codewake.com/badges/ask_question.svg)](https://www.codewake.com/p/tesson) [![GoDoc](https://godoc.org/github.com/kobolog/tesson/lib?status.svg)](https://godoc.org/github.com/kobolog/tesson/lib)
+# Tesson [![Build Status][travis-img]][travis] [![Codewake][codewake-img]][codewake] [![GoDoc][godoc-img]][godoc]
 
 **Shard All The Things!**
 
 Tesson is a tool that automatically analyzes your hardware topology to utilize it as much as possible by spawning and pinning multiple instances of your app to available CPU cores and/or NUMA nodes, behind a local load balancer. Tesson is easily integrated with [Gorb](https://github.com/kobolog/gorb) to enable seamless, dynamic and extremely fast load balancing powered by [IPVS](https://en.wikipedia.org/wiki/IP_Virtual_Server).
+
+Watch a talk about this tool here: [DockerCon 2016: Sharding Containers](https://www.youtube.com/watch?v=5lGVCPQeqiM).
 
 ## Configuration
 
@@ -42,3 +44,10 @@ Alternatively, you can provide Gorb URI via an environment variable `GORB_URI`.
 - [ ] Hardware device locality: allow pinning to NICs, disk subsystems, etc.
 - [ ] More automation around resource quotas and management: CPU shares, memory limits (e.g. allow for memory reservation, etc).
 - [ ] Support for remote usage: detect topology via hwloc container injection.
+
+[travis]: https://travis-ci.org/kobolog/tesson
+[travis-img]: https://travis-ci.org/kobolog/tesson.svg?branch=master
+[codewake]: https://www.codewake.com/p/tesson
+[codewake-img]: https://www.codewake.com/badges/ask_question.svg
+[godoc]: https://godoc.org/github.com/kobolog/tesson/lib
+[godoc-img]: https://godoc.org/github.com/kobolog/tesson/lib?status.svg
