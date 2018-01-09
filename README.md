@@ -1,4 +1,4 @@
-# Tesson [![Build Status][travis-img]][travis] [![Codewake][codewake-img]][codewake] [![GoDoc][godoc-img]][godoc]
+# Tesson [![Build Status][travis-img]][travis] [![GoDoc][godoc-img]][godoc]
 
 **Shard All The Things!**
 
@@ -47,7 +47,5 @@ Alternatively, you can provide Gorb URI via an environment variable `GORB_URI`.
 
 [travis]: https://travis-ci.org/kobolog/tesson
 [travis-img]: https://travis-ci.org/kobolog/tesson.svg?branch=master
-[codewake]: https://www.codewake.com/p/tesson
-[codewake-img]: https://www.codewake.com/badges/ask_question.svg
 [godoc]: https://godoc.org/github.com/kobolog/tesson/lib
 [godoc-img]: https://godoc.org/github.com/kobolog/tesson/lib?status.svg
