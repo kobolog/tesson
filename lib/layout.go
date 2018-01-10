@@ -109,13 +109,13 @@ type unit struct {
 
 func (u unit) String() string {
 	b := [64]C.char{}
-	n := C.hwloc_bitmap_list_snprintf(&b[0], C.size_t(len(b)), u.c)
+	n := C.hwloc_bitmap_list_snprintf(&b[0], C.size_t(len(b)), (C.hwloc_const_bitmap_t)(u.c))
 
 	return C.GoStringN(&b[0], n)
 }
 
 func (u unit) Weight() int {
-	return int(C.hwloc_bitmap_weight(u.c))
+	return int(C.hwloc_bitmap_weight((C.hwloc_const_bitmap_t)(u.c)))
 }
 
 func (t *hwloc) Distribute(
